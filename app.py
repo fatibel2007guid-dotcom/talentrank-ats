@@ -534,7 +534,7 @@ def afficher_candidats():
 
             st.caption(f"{len(candidats_etape)} candidats")
 
-            for _, candidat_kanban in candidats_etape.iterrows():
+            for idx, candidat_kanban in candidats_etape.iterrows():
 
                 with st.container(border=True):
 
@@ -550,6 +550,26 @@ def afficher_candidats():
                         "Matching Score",
                         f"{candidat_kanban['score']}/100"
                     )
+                    nouvelle_etape = st.selectbox(
+                        "Move to",
+                        etapes_kanban,
+                        index=etapes_kanban.index(etape),
+                        key=f"move_{idx}"
+                    )
+
+                    if st.button(
+                        "Update Stage",
+                        key=f"update_{idx}",
+                        use_container_width=True
+                    ):
+
+                        tableau.at[idx, "decision"] = nouvelle_etape
+
+                        enregistrer_candidats(tableau)
+
+                        st.success("Stage updated!")
+
+                        st.rerun()
 
     st.markdown("---")
 
