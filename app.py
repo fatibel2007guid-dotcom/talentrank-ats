@@ -62,94 +62,17 @@ DECISIONS = [
 # 2. DESIGN CSS
 # ==========================================
 
-st.markdown("""
-<style>
-
-@import url(
-'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap'
-);
-
-html, body, [class*="css"] {
-    font-family: 'Inter', sans-serif;
-}
-
-.stApp {
-    background-color: #F5F6FA;
-}
-
-.block-container {
-    padding-top: 2rem;
-    padding-bottom: 3rem;
-    max-width: 1450px;
-}
-
-section[data-testid="stSidebar"] {
-    background-color: #172554;
-}
-
-section[data-testid="stSidebar"] * {
-    color: white;
-}
-
-h1 {
-    color: #172554 !important;
-    font-weight: 800 !important;
-}
-
-h2, h3 {
-    color: #172554 !important;
-    font-weight: 700 !important;
-}
-
-div[data-testid="stMetric"] {
-    background-color: white;
-    border: 1px solid #E8EAF2;
-    padding: 22px;
-    border-radius: 14px;
-    box-shadow: 0 3px 12px rgba(20, 35, 80, 0.04);
-}
-
-div[data-testid="stMetricLabel"] {
-    color: #64748B;
-    font-weight: 600;
-}
-
-div[data-testid="stMetricValue"] {
-    color: #172554;
-    font-weight: 800;
-}
-
-.stButton button,
-.stFormSubmitButton button {
-    background-color: #635BDB;
-    color: white;
-    border: none;
-    border-radius: 9px;
-    font-weight: 600;
-    padding: 10px 20px;
-}
-
-.stButton button:hover,
-.stFormSubmitButton button:hover {
-    background-color: #5148C8;
-    color: white;
-}
-
-.stTextInput input,
-.stSelectbox div[data-baseweb="select"] {
-    border-radius: 8px;
-}
-
-div[data-testid="stDataFrame"] {
-    border-radius: 12px;
-}
-
-hr {
-    border-color: #E5E7EB;
-}
-
-</style>
-""", unsafe_allow_html=True)
+st.html("""
+    <div style="background:#26376B; padding:15px; border-radius:10px; margin-top:20px;">
+        <p style="font-size:12px;color:#C7D2FE;">
+            RECRUITMENT MANAGEMENT
+        </p>
+        <p style="font-size:13px;color:white;">
+            Manage your candidates and simplify
+            your recruitment process.
+        </p>
+    </div>
+    """)
 
 
 # ==========================================
