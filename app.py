@@ -222,14 +222,15 @@ with st.sidebar:
     st.caption("OVERVIEW")
 
     page = st.radio(
-        "Navigation",
-        [
-            "Dashboard",
-            "Candidates",
-            "Add Candidate"
-        ],
-        label_visibility="collapsed"
-    )
+    "Navigation",
+    [
+        "Dashboard",
+        "Candidates",
+        "Add Candidate",
+        "Job Offers"
+    ],
+    label_visibility="collapsed"
+)
 
     st.markdown("---")
 
