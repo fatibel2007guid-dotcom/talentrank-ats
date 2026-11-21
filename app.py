@@ -1171,6 +1171,7 @@ def ajouter_candidat():
 
 
 # ==========================================
+# ==========================================
 # 9. PAGE NAVIGATION
 # ==========================================
 
@@ -1185,6 +1186,7 @@ elif page == "Candidates":
 elif page == "Add Candidate":
 
     ajouter_candidat()
-    elif page == "Job Offers":
+
+elif page == "Job Offers":
 
     afficher_offres()
