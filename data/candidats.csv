@@ -1,4 +1,11 @@
-nom,email,score,statut,date
-test faible,faible@mail.com,7.5,Refusé,2026-11-21
-test moyen,moyen@mail.com,55.25,À étudier,2026-11-21
-test fort,fort@mail.com,96.0,À contacter,2026-11-21
+﻿nom,email,score,statut,date,decision,cv_path
+Kenza El Amrani,kenza.elamrani@example.test,95.0,À contacter,2026-11-21,À décider,data\test_cv\kenza_el_amrani.pdf
+Youssef Tazi,youssef.tazi@example.test,89.0,À contacter,2026-11-21,À décider,data\test_cv\youssef_tazi.pdf
+Imane Alaoui,imane.alaoui@example.test,74.0,À contacter,2026-11-21,À décider,data\test_cv\imane_alaoui.pdf
+Omar Berrada,omar.berrada@example.test,79.75,À contacter,2026-11-21,À décider,data\test_cv\omar_berrada.pdf
+Salma Benjelloun,salma.benjelloun@example.test,61.5,À étudier,2026-11-21,À décider,data\test_cv\salma_benjelloun.pdf
+Nadia Chraibi,nadia.chraibi@example.test,34.75,Refusé,2026-11-21,À décider,data\test_cv\nadia_chraibi.pdf
+Hamza Idrissi,hamza.idrissi@example.test,13.5,Refusé,2026-11-21,À décider,data\test_cv\hamza_idrissi.pdf
+Reda Lahlou,reda.lahlou@example.test,42.0,Refusé,2026-11-21,À décider,data\test_cv\reda_lahlou.pdf
+Sara Mouline,sara.mouline@example.test,24.0,Refusé,2026-11-21,À décider,data\test_cv\sara_mouline.pdf
+Anas Fassi,anas.fassi@example.test,9.75,Refusé,2026-11-21,À décider,data\test_cv\anas_fassi.pdf
