@@ -208,33 +208,14 @@ def enregistrer_candidats(tableau):
 
 
 # ==========================================
+# ==========================================
 # 4. SIDEBAR
 # ==========================================
 
 with st.sidebar:
 
     st.title("🎯 TalentRank")
-    st.caption("SMART RECRUITMENT PLATFORM")("""
-        <div style="padding:15px 0 25px 0;">
-
-            <h1 style="
-                color:white !important;
-                font-size:27px;
-                margin:0;
-            ">
-                🎯 TalentRank
-            </h1>
-
-            <p style="
-                color:#C7D2FE;
-                font-size:12px;
-                margin-top:5px;
-            ">
-                SMART RECRUITMENT PLATFORM
-            </p>
-
-        </div>
-    """, unsafe_allow_html=True)
+    st.caption("SMART RECRUITMENT PLATFORM")
 
     st.markdown("---")
 
@@ -254,39 +235,13 @@ with st.sidebar:
 
     st.caption("SYSTEM")
 
-    st.caption("SYSTEM")
-
     st.info(
         "RECRUITMENT MANAGEMENT\n\n"
         "Manage your candidates and simplify "
         "your recruitment process."
-    )("""
-        <div style="
-            background:#26376B;
-            padding:15px;
-            border-radius:10px;
-            margin-top:20px;
-        ">
+    )
 
-            <p style="
-                font-size:12px;
-                color:#C7D2FE;
-            ">
-                RECRUITMENT MANAGEMENT
-            </p>
-
-            <p style="
-                font-size:13px;
-                color:white;
-            ">
-                Manage your candidates and simplify
-                your recruitment process.
-            </p>
-
-        </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("---")
 
     if st.button(
         "🔄 Reset Demo",
@@ -304,9 +259,6 @@ with st.sidebar:
         except Exception as erreur:
 
             st.error(str(erreur))
-
-
-# ==========================================
 # 5. INITIALISATION
 # ==========================================
 
