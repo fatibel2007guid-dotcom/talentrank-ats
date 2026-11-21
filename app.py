@@ -213,7 +213,8 @@ def enregistrer_candidats(tableau):
 
 with st.sidebar:
 
-    st.markdown("""
+    st.title("🎯 TalentRank")
+    st.caption("SMART RECRUITMENT PLATFORM")("""
         <div style="padding:15px 0 25px 0;">
 
             <h1 style="
@@ -253,7 +254,13 @@ with st.sidebar:
 
     st.caption("SYSTEM")
 
-    st.markdown("""
+    st.caption("SYSTEM")
+
+    st.info(
+        "RECRUITMENT MANAGEMENT\n\n"
+        "Manage your candidates and simplify "
+        "your recruitment process."
+    )("""
         <div style="
             background:#26376B;
             padding:15px;
