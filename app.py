@@ -32,6 +32,7 @@ BASE_DIR = Path(__file__).parent
 DOSSIER_CV = BASE_DIR / "data" / "cv"
 
 FICHIER_CANDIDATS = BASE_DIR / "data" / "candidats.csv"
+FICHIER_OFFRES = BASE_DIR / "data" / "offres.csv"
 
 COLONNES_CSV = [
     "nom",
@@ -209,6 +210,195 @@ def enregistrer_candidats(tableau):
 
 # ==========================================
 # ==========================================
+# ==========================================
+# JOB OFFERS MANAGEMENT
+# ==========================================
+
+def afficher_offres():
+
+    st.title("Job Offers Management")
+
+    st.markdown(
+        "Create and manage your recruitment offers."
+    )
+
+    st.markdown("---")
+
+    st.subheader("➕ Create a New Job Offer")
+
+    with st.form("formulaire_offre"):
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+
+            titre = st.text_input("Job Title *")
+
+            departement = st.selectbox(
+                "Department",
+                [
+                    "Human Resources",
+                    "Marketing",
+                    "Finance",
+                    "IT",
+                    "Management",
+                    "Sales"
+                ]
+            )
+
+            contrat = st.selectbox(
+                "Contract Type",
+                ["CDI", "CDD", "Stage", "Freelance"]
+            )
+
+        with col2:
+
+            localisation = st.text_input(
+                "Location",
+                placeholder="Casablanca"
+            )
+
+            places = st.number_input(
+                "Number of Positions",
+                min_value=1,
+                max_value=100,
+                value=1
+            )
+
+        description = st.text_area(
+            "Job Description *",
+            height=150,
+            placeholder="Describe the position and required skills..."
+        )
+
+        publier = st.form_submit_button(
+            "Publish Job Offer",
+            use_container_width=True
+        )
+
+    if publier:
+
+        if not titre.strip() or not description.strip():
+
+            st.error("Job Title and Description are required.")
+
+        else:
+
+            offres = charger_offres()
+
+            nouvelle_offre = pd.DataFrame([{
+
+                "id": uuid.uuid4().hex[:8],
+
+                "titre": titre.strip(),
+
+                "departement": departement,
+
+                "contrat": contrat,
+
+                "localisation": localisation.strip(),
+
+                "description": description.strip(),
+
+                "places": places,
+
+                "date": date.today().isoformat()
+
+            }])
+
+            offres = pd.concat(
+                [offres, nouvelle_offre],
+                ignore_index=True
+            )
+
+            enregistrer_offres(offres)
+
+            st.success("Job offer published successfully!")
+
+            st.rerun()
+
+    st.markdown("---")
+
+    st.subheader("📋 Published Job Offers")
+
+    offres = charger_offres()
+
+    if offres.empty:
+
+        st.info("No job offers published yet.")
+
+    else:
+
+        st.metric("Total Job Offers", len(offres))
+
+        for _, offre in offres.iterrows():
+
+            with st.container(border=True):
+
+                st.markdown(f"### 💼 {offre['titre']}")
+
+                col1, col2, col3 = st.columns(3)
+
+                col1.write(f"**Department:** {offre['departement']}")
+
+                col2.write(f"**Contract:** {offre['contrat']}")
+
+                col3.write(f"**Location:** {offre['localisation']}")
+
+                st.write(
+                    f"**Available Positions:** {offre['places']}"
+                )
+
+                with st.expander("View Job Description"):
+
+                    st.write(offre["description"])
+
+                st.caption(f"Published on: {offre['date']}")
+                # ==========================================
+# JOB OFFERS DATABASE
+# ==========================================
+
+COLONNES_OFFRES = [
+    "id",
+    "titre",
+    "departement",
+    "contrat",
+    "localisation",
+    "description",
+    "places",
+    "date"
+]
+
+
+def charger_offres():
+
+    if not FICHIER_OFFRES.exists():
+
+        return pd.DataFrame(columns=COLONNES_OFFRES)
+
+    offres = pd.read_csv(
+        FICHIER_OFFRES,
+        encoding="utf-8-sig"
+    ).fillna("")
+
+    for colonne in COLONNES_OFFRES:
+
+        if colonne not in offres.columns:
+
+            offres[colonne] = ""
+
+    return offres
+
+
+def enregistrer_offres(offres):
+
+    offres.reindex(
+        columns=COLONNES_OFFRES
+    ).to_csv(
+        FICHIER_OFFRES,
+        index=False,
+        encoding="utf-8-sig"
+    )
 # 4. SIDEBAR
 # ==========================================
 
@@ -995,3 +1185,6 @@ elif page == "Candidates":
 elif page == "Add Candidate":
 
     ajouter_candidat()
+    elif page == "Job Offers":
+
+    afficher_offres()
