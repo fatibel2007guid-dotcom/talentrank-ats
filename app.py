@@ -403,6 +403,66 @@ def afficher_dashboard():
             st.info("Aucune donnée disponible.")
 
     st.markdown("---")
+    # ======================================
+    # RECRUITMENT FUNNEL & TOP CANDIDATES
+    # ======================================
+
+    st.markdown("---")
+
+    gauche, droite = st.columns(2)
+
+    with gauche:
+
+        st.subheader("Recruitment Funnel")
+
+        etapes = [
+            "À décider",
+            "Présélectionné",
+            "Entretien",
+            "Accepté"
+        ]
+
+        funnel = pd.DataFrame({
+            "Stage": etapes,
+            "Candidates": [
+                int((tableau["decision"] == etape).sum())
+                for etape in etapes
+            ]
+        })
+
+        st.bar_chart(
+            funnel.set_index("Stage"),
+            color="#635BDB"
+        )
+
+    with droite:
+
+        st.subheader("🏆 Top Candidates")
+
+        top = tableau.sort_values(
+            "score",
+            ascending=False
+        ).head(5)
+
+        if not top.empty:
+
+            st.dataframe(
+                top[
+                    ["nom", "score", "decision"]
+                ].rename(
+                    columns={
+                        "nom": "Candidate",
+                        "score": "Matching Score",
+                        "decision": "Decision"
+                    }
+                ),
+                hide_index=True,
+                use_container_width=True
+            )
+
+        else:
+
+            st.info("No candidates available.")
 
     st.subheader("Recent Applications")
 
