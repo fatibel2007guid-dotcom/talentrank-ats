@@ -1,4 +1,4 @@
 nom,email,score,statut,date
-tesr fort,fort@mail.com,92.33,À contacter,2026-11-21
-test moyen,moyen@mail.com,55.25,À étudier,2026-11-21
 test faible,faible@mail.com,7.5,Refusé,2026-11-21
+test moyen,moyen@mail.com,55.25,À étudier,2026-11-21
+test fort,fort@mail.com,96.0,À contacter,2026-11-21

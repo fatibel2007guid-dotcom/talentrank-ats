@@ -1,4 +1,4 @@
-"""Calcul d'un score indicatif pour une candidature de développeur Python."""
+"""Calcul d'un score indicatif pour une candidature de chargé de recrutement RH."""
 
 import re
 import unicodedata
@@ -77,40 +77,45 @@ def calculer_score(texte_cv: str) -> dict[str, object]:
     # Une compétence compte seulement si elle figure sous Compétences ou Expérience.
     texte_competences = f"{sections['competences']}\n{sections['experience']}"
     competences = {
-        "Python": r"\bpython\b",
-        "SQL": r"\b(?:sql|postgresql|sqlalchemy)\b",
-        "Git": r"\bgit\b",
-        "Streamlit": r"\bstreamlit\b",
-        "Docker": r"\bdocker\b",
-        "FastAPI": r"\bfastapi\b",
+        "Recrutement": r"\brecrutement\b|\brecruter\b|\brecruteur\b|\brecruteuse\b",
+        "Sourcing": r"\bsourcing\b|\bsourcer\b",
+        "Entretien": r"\bentretiens?\b",
+        "ATS": r"\bats\b|logiciel de recrutement",
+        "Excel": r"\bexcel\b",
+        "Rédaction d'annonces": r"redaction.{0,30}annonces?|annonces?.{0,30}redaction|offres d'emploi",
+        "Paie": r"\bpaie\b|\bpaye\b",
+        "Droit du travail": r"droit du travail|legislation sociale",
+        "Entretien structuré": r"entretiens? structures?",
+        "GPEC": r"\bgpec\b|gestion previsionnelle des emplois",
     }
     competences_trouvees = [nom for nom, motif in competences.items() if re.search(motif, texte_competences)]
-    points_competences = PONDERATIONS["Compétences techniques"] * len(competences_trouvees) / 6
+    points_competences = PONDERATIONS["Compétences techniques"] * len(competences_trouvees) / len(competences)
 
-    # Pour cette offre, seules les périodes d'expérience liées au développement comptent.
+    # Pour cette offre, seules les périodes d'expérience liées aux RH/recrutement comptent.
     texte_experience = sections["experience"]
-    experience_developpement = bool(re.search(
-        r"\b(developpeur|developpeuse|developpement|programmation|logiciel|python|backend|api)\b",
+    experience_recrutement = bool(re.search(
+        r"\brecrutement\b|\brecruteur\b|\brecruteuse\b|\bchargee? de recrutement\b|\btalent acquisition\b|\brh\b",
         texte_experience,
     ))
-    annees = _annees_depuis_periodes(texte_experience) if experience_developpement else 0
+    annees = _annees_depuis_periodes(texte_experience) if experience_recrutement else 0
     points_experience = PONDERATIONS["Expérience"] * min(annees / 4, 1)
 
     # Le niveau doit être explicitement indiqué dans la rubrique Formation.
     texte_formation = sections["formation"]
     niveau_bac = re.search(r"\bbac\s*\+\s*([3-9])\b", texte_formation)
     if niveau_bac:
-        points_formation = PONDERATIONS["Formation"] if int(niveau_bac.group(1)) >= 5 else 12.0
+        niveau = int(niveau_bac.group(1))
+        points_formation = PONDERATIONS["Formation"] if niveau >= 5 else 12.0 if niveau == 3 else 16.0
         detail_formation = f"Bac+{niveau_bac.group(1)} explicite"
     elif re.search(r"\b(master|ingenieur|doctorat)\b", texte_formation):
         points_formation = float(PONDERATIONS["Formation"])
         detail_formation = "Diplôme de niveau Bac+5 ou supérieur détecté"
     elif re.search(r"\blicence\b", texte_formation):
         points_formation = 12.0
-        detail_formation = "Licence détectée (score partiel Bac+3)"
+        detail_formation = "Licence détectée (score partiel Bac+3; Bac+5 requis pour le maximum)"
     else:
         points_formation = 0.0
-        detail_formation = "Aucun diplôme Bac+3 ou supérieur explicite détecté"
+        detail_formation = "Aucun diplôme Bac+3 ou supérieur détecté"
 
     # Français vaut 5 points. L'anglais est gradué selon le niveau CECRL indiqué.
     texte_langues = sections["langues"]
@@ -133,7 +138,7 @@ def calculer_score(texte_cv: str) -> dict[str, object]:
         detail_langues = f"Français : {'détecté' if francais_present else 'non détecté'}; anglais : {'détecté' if anglais_present else 'non détecté'}"
 
     details = {
-        "Compétences techniques": {"score": round(points_competences, 2), "maximum": 40, "détail": f"{len(competences_trouvees)}/6 : {', '.join(competences_trouvees) or 'aucune'}"},
+        "Compétences techniques": {"score": round(points_competences, 2), "maximum": 40, "détail": f"{len(competences_trouvees)}/{len(competences)} : {', '.join(competences_trouvees) or 'aucune'}"},
         "Expérience": {"score": round(points_experience, 2), "maximum": 25, "détail": f"{annees} an(s) détecté(s), 4 requis"},
         "Formation": {"score": round(points_formation, 2), "maximum": 20, "détail": detail_formation},
         "Langues": {"score": round(points_langues, 2), "maximum": 10, "détail": detail_langues},
