@@ -235,11 +235,25 @@ with st.sidebar:
 
     st.caption("SYSTEM")
 
-    st.info(
-        "RECRUITMENT MANAGEMENT\n\n"
-        "Manage your candidates and simplify "
-        "your recruitment process."
-    )
+    st.markdown(
+    """
+    <div style="
+        background:#26376B;
+        padding:15px;
+        border-radius:10px;
+        margin-top:10px;
+    ">
+        <p style="font-size:12px;color:#C7D2FE;">
+            RECRUITMENT MANAGEMENT
+        </p>
+        <p style="font-size:13px;color:white;">
+            Manage your candidates and simplify
+            your recruitment process.
+        </p>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
     st.markdown("---")
 
