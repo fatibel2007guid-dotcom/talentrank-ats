@@ -250,25 +250,14 @@ with st.sidebar:
 
     st.caption("SYSTEM")
 
-    st.markdown("""
-        <div style="
-            background:#26376B;
-            padding:15px;
-            border-radius:10px;
-            margin-top:20px;
-        ">
+    <p style="font-size:12px;color:#C7D2FE;">
+    RECRUITMENT MANAGEMENT
+</p>
 
-            <p style="font-size:12px;color:#C7D2FE;">
-                RECRUITMENT MANAGEMENT
-            </p>
-
-            <p style="font-size:13px;color:white;">
-                Manage your candidates and simplify
-                your recruitment process.
-            </p>
-
-        </div>
-    """, unsafe_allow_html=True)
+<p style="font-size:13px;color:white;">
+    Manage your candidates and simplify
+    your recruitment process.
+</p>
 
     st.markdown("<br>", unsafe_allow_html=True)
 
