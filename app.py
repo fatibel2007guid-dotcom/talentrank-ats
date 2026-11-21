@@ -542,7 +542,7 @@ def afficher_candidats():
 
 
 
-    cv_path_rel = str(candidat.get("cv_path", "")).strip()
+    cv_path_rel = str(candidat.get("cv_path", "")).strip().replace("\\", "/")
 
     if cv_path_rel:
         chemin_cv = (BASE_DIR / cv_path_rel).resolve()
