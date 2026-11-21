@@ -505,6 +505,53 @@ def afficher_candidats():
     st.markdown(
         "Consultez et gérez les candidatures reçues."
     )
+    # ======================================
+    # KANBAN BOARD
+    # ======================================
+
+    st.markdown("---")
+    st.subheader("📋 Recruitment Pipeline")
+
+    etapes_kanban = [
+        "À décider",
+        "Présélectionné",
+        "Entretien",
+        "Accepté",
+        "Refusé"
+    ]
+
+    colonnes = st.columns(5)
+
+    for colonne, etape in zip(colonnes, etapes_kanban):
+
+        with colonne:
+
+            st.markdown(f"**{etape}**")
+
+            candidats_etape = tableau[
+                tableau["decision"].astype(str) == etape
+            ]
+
+            st.caption(f"{len(candidats_etape)} candidats")
+
+            for _, candidat_kanban in candidats_etape.iterrows():
+
+                with st.container(border=True):
+
+                    st.markdown(
+                        f"**{candidat_kanban['nom']}**"
+                    )
+
+                    st.caption(
+                        candidat_kanban["email"]
+                    )
+
+                    st.metric(
+                        "Matching Score",
+                        f"{candidat_kanban['score']}/100"
+                    )
+
+    st.markdown("---")
 
     if tableau.empty:
 
