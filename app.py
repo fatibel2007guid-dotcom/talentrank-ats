@@ -210,7 +210,7 @@ def enregistrer_candidats(tableau):
 
 with st.sidebar:
 
-    st.markdown("""
+    st.html("""
         <div style="padding:15px 0 25px 0;">
 
             <h1 style="
@@ -230,7 +230,7 @@ with st.sidebar:
             </p>
 
         </div>
-    """, unsafe_allow_html=True)
+    """)
 
     st.markdown("---")
 
