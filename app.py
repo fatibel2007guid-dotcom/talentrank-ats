@@ -542,14 +542,51 @@ def afficher_candidats():
 
 
 
-    cv_path_rel = str(candidat.get("cv_path", "")).strip().replace("\\", "/")
+   cv_path_rel = str(candidat.get("cv_path", "")).strip().replace("\\", "/")
 
+    if cv_path_rel:
+        chemin_cv = (BASE_DIR / cv_path_rel).resolve()
 
+        if chemin_cv.is_relative_to(BASE_DIR.resolve()) and chemin_cv.is_file():
+
+            contenu_pdf = chemin_cv.read_bytes()
+
+            st.download_button(
+                "📄 Télécharger le CV",
+                data=contenu_pdf,
+                file_name=f"{candidat['nom']}_CV.pdf",
+                mime="application/pdf",
+                key=f"cv_{index}"
+            )
+
+            st.markdown("### Aperçu du CV")
+
+            import base64
+
+            pdf_base64 = base64.b64encode(contenu_pdf).decode("utf-8")
+
+            st.markdown(
+                f"""
+                <iframe
+                    src="data:application/pdf;base64,{pdf_base64}"
+                    width="100%"
+                    height="700"
+                    style="border: 1px solid #E5E7EB; border-radius: 10px;">
+                </iframe>
+                """,
+                unsafe_allow_html=True
+            )
+
+        else:
+            st.info("CV non disponible.")
+
+    else:
+        st.info("Aucun CV enregistré pour ce candidat.")
+
+    decision_actuelle = str(candidat["decision"])
 
     if decision_actuelle not in DECISIONS:
         decision_actuelle = "À décider"
-
-    nouvelle_decision = st.selectbox(
         "Décision du recruteur",
         DECISIONS,
         index=DECISIONS.index(decision_actuelle),
