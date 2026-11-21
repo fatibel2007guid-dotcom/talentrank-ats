@@ -215,31 +215,18 @@ def enregistrer_candidats(tableau):
 # ==========================================
 
 with st.sidebar:
-
-    st.markdown(
-        """
+st.markdown("""
         <div style="padding:15px 0 25px 0;">
-
-            <h1 style="
-                color:white !important;
-                font-size:27px;
-                margin-bottom:0;
-            ">
+            <h1 style="color:white; font-size:27px; margin:0;">
                 🎯 TalentRank
             </h1>
-
-            <p style="
-                color:#C7D2FE;
-                font-size:12px;
-                margin-top:5px;
-            ">
+            <p style="color:#C7D2FE; font-size:12px; margin-top:5px;">
                 SMART RECRUITMENT PLATFORM
             </p>
-
         </div>
-        """,
-        unsafe_allow_html=True
-    )
+    """, unsafe_allow_html=True)
+                                                         x
+               
 
     st.markdown("---")
 
