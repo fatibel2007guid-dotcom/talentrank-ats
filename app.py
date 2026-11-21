@@ -62,17 +62,97 @@ DECISIONS = [
 # 2. DESIGN CSS
 # ==========================================
 
-st.html("""
-    <div style="background:#26376B; padding:15px; border-radius:10px; margin-top:20px;">
-        <p style="font-size:12px;color:#C7D2FE;">
-            RECRUITMENT MANAGEMENT
-        </p>
-        <p style="font-size:13px;color:white;">
-            Manage your candidates and simplify
-            your recruitment process.
-        </p>
-    </div>
-    """)
+st.markdown("""
+<style>
+
+@import url(
+'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap'
+);
+
+html, body, [class*="css"] {
+    font-family: 'Inter', sans-serif;
+}
+
+.stApp {
+    background-color: #F5F6FA;
+}
+
+.block-container {
+    padding-top: 2rem;
+    padding-bottom: 3rem;
+    max-width: 1450px;
+}
+
+section[data-testid="stSidebar"] {
+    background-color: #172554;
+}
+
+section[data-testid="stSidebar"] * {
+    color: white;
+}
+
+section[data-testid="stSidebar"] div[data-baseweb="radio"] label {
+    color: white;
+}
+
+h1 {
+    color: #172554 !important;
+    font-weight: 800 !important;
+}
+
+h2, h3 {
+    color: #172554 !important;
+    font-weight: 700 !important;
+}
+
+div[data-testid="stMetric"] {
+    background-color: white;
+    border: 1px solid #E8EAF2;
+    padding: 22px;
+    border-radius: 14px;
+    box-shadow: 0 3px 12px rgba(20, 35, 80, 0.04);
+}
+
+div[data-testid="stMetricLabel"] {
+    color: #64748B;
+    font-weight: 600;
+}
+
+div[data-testid="stMetricValue"] {
+    color: #172554;
+    font-weight: 800;
+}
+
+.stButton button,
+.stFormSubmitButton button {
+    background-color: #635BDB;
+    color: white;
+    border: none;
+    border-radius: 9px;
+    font-weight: 600;
+    padding: 10px 20px;
+}
+
+.stButton button:hover,
+.stFormSubmitButton button:hover {
+    background-color: #5148C8;
+    color: white;
+}
+
+.stTextInput input {
+    border-radius: 8px;
+}
+
+div[data-testid="stDataFrame"] {
+    border-radius: 12px;
+}
+
+hr {
+    border-color: #E5E7EB;
+}
+
+</style>
+""", unsafe_allow_html=True)
 
 
 # ==========================================
@@ -133,11 +213,11 @@ def enregistrer_candidats(tableau):
 
 with st.sidebar:
 
-    st.html("""
+    st.markdown("""
         <div style="padding:15px 0 25px 0;">
 
             <h1 style="
-                color:white;
+                color:white !important;
                 font-size:27px;
                 margin:0;
             ">
@@ -153,7 +233,7 @@ with st.sidebar:
             </p>
 
         </div>
-    """)
+    """, unsafe_allow_html=True)
 
     st.markdown("---")
 
@@ -173,18 +253,38 @@ with st.sidebar:
 
     st.caption("SYSTEM")
 
-    <p style="font-size:12px;color:#C7D2FE;">
-    RECRUITMENT MANAGEMENT
-</p>
+    st.markdown("""
+        <div style="
+            background:#26376B;
+            padding:15px;
+            border-radius:10px;
+            margin-top:20px;
+        ">
 
-<p style="font-size:13px;color:white;">
-    Manage your candidates and simplify
-    your recruitment process.
-</p>
+            <p style="
+                font-size:12px;
+                color:#C7D2FE;
+            ">
+                RECRUITMENT MANAGEMENT
+            </p>
+
+            <p style="
+                font-size:13px;
+                color:white;
+            ">
+                Manage your candidates and simplify
+                your recruitment process.
+            </p>
+
+        </div>
+    """, unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    if st.button("🔄 Reset Demo", use_container_width=True):
+    if st.button(
+        "🔄 Reset Demo",
+        use_container_width=True
+    ):
 
         try:
 
@@ -362,7 +462,7 @@ def afficher_dashboard():
 
 
 # ==========================================
-# 7. CANDIDATES
+# 7. CANDIDATE MANAGEMENT
 # ==========================================
 
 def afficher_candidats():
@@ -484,9 +584,9 @@ def afficher_candidats():
 
     st.write(f"**Email:** {candidat['email']}")
 
-    # --------------------------------------
+    # ======================================
     # CV DOWNLOAD AND PREVIEW
-    # --------------------------------------
+    # ======================================
 
     st.markdown("---")
 
@@ -553,9 +653,9 @@ def afficher_candidats():
 
         st.info("Aucun CV enregistré pour ce candidat.")
 
-    # --------------------------------------
+    # ======================================
     # RECRUITER DECISION
-    # --------------------------------------
+    # ======================================
 
     st.markdown("---")
 
@@ -726,32 +826,46 @@ def ajouter_candidat():
                 f"**Status : {resultat['statut']}**"
             )
 
-            st.subheader("Score Details")
-
-            details = pd.DataFrame([
-
-                {
-                    "Critère": critere,
-
-                    "Score": (
-                        f"{detail['score']} / "
-                        f"{detail['maximum']}"
-                    ),
-
-                    "Détail": detail["détail"]
-
-                }
-
-                for critere, detail
-                in resultat["détails"].items()
-
-            ])
-
-            st.dataframe(
-                details,
-                hide_index=True,
-                use_container_width=True
+            details = resultat.get(
+                "détails",
+                resultat.get("details", {})
             )
+
+            if isinstance(details, dict) and details:
+
+                st.subheader("Score Details")
+
+                lignes = []
+
+                for critere, detail in details.items():
+
+                    if isinstance(detail, dict):
+
+                        lignes.append({
+                            "Critère": critere,
+                            "Score": (
+                                f"{detail.get('score', '—')} / "
+                                f"{detail.get('maximum', '—')}"
+                            ),
+                            "Détail": detail.get(
+                                "détail",
+                                detail.get("detail", "")
+                            )
+                        })
+
+                    else:
+
+                        lignes.append({
+                            "Critère": critere,
+                            "Score": "—",
+                            "Détail": str(detail)
+                        })
+
+                st.dataframe(
+                    pd.DataFrame(lignes),
+                    hide_index=True,
+                    use_container_width=True
+                )
 
             st.caption(
                 "L'évaluation est indicative. "
