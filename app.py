@@ -549,14 +549,33 @@ def afficher_candidats():
 
         if chemin_cv.is_relative_to(BASE_DIR.resolve()) and chemin_cv.is_file():
 
-            with open(chemin_cv, "rb") as fichier:
-                st.download_button(
-                    "📄 Télécharger le CV",
-                    data=fichier.read(),
-                    file_name=f"{candidat['nom']}_CV.pdf",
-                    mime="application/pdf",
-                    key=f"cv_{index}"
-                )
+            contenu_pdf = chemin_cv.read_bytes()
+
+st.download_button(
+    "📄 Télécharger le CV",
+    data=contenu_pdf,
+    file_name=f"{candidat['nom']}_CV.pdf",
+    mime="application/pdf",
+    key=f"cv_{index}"
+)
+
+st.markdown("### Aperçu du CV")
+
+import base64
+
+pdf_base64 = base64.b64encode(contenu_pdf).decode("utf-8")
+
+st.markdown(
+    f"""
+    <iframe
+        src="data:application/pdf;base64,{pdf_base64}"
+        width="100%"
+        height="700"
+        style="border: 1px solid #E5E7EB; border-radius: 10px;">
+    </iframe>
+    """,
+    unsafe_allow_html=True
+)
         else:
             st.info("CV non disponible.")
     else:
