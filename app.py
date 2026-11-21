@@ -538,7 +538,29 @@ def afficher_candidats():
     c2.metric("Status", candidat["statut"])
     c3.metric("Decision", candidat["decision"])
 
-    st.write(f"**Email:** {candidat['email']}")
+    st.write(f"**Email:** {candidat['email']}") 
+
+
+
+    cv_path_rel = str(candidat.get("cv_path", "")).strip()
+
+    if cv_path_rel:
+        chemin_cv = (BASE_DIR / cv_path_rel).resolve()
+
+        if chemin_cv.is_relative_to(BASE_DIR.resolve()) and chemin_cv.is_file():
+
+            with open(chemin_cv, "rb") as fichier:
+                st.download_button(
+                    "📄 Télécharger le CV",
+                    data=fichier.read(),
+                    file_name=f"{candidat['nom']}_CV.pdf",
+                    mime="application/pdf",
+                    key=f"cv_{index}"
+                )
+        else:
+            st.info("CV non disponible.")
+    else:
+        st.info("Aucun CV enregistré pour ce candidat.")
 
     decision_actuelle = str(candidat["decision"])
 
