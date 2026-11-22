@@ -938,6 +938,20 @@ def afficher_candidats():
     )
 
     st.write(f"**Email:** {candidat['email']}")
+    
+    st.markdown("---")
+
+    st.subheader("Application Information")
+
+    c1, c2 = st.columns(2)
+
+    c1.info(
+        f"💼 **Job Offer:** {candidat.get('offre', 'Not specified')}"
+    )
+
+    c2.info(
+        f"📅 **Application Date:** {candidat.get('date', 'Not specified')}"
+    )
 
     # ======================================
     # CV DOWNLOAD AND PREVIEW
