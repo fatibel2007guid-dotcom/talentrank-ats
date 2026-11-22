@@ -1166,6 +1166,65 @@ def afficher_comparaison():
 
     st.markdown("---")
 
+    st.subheader("📊 Detailed Skills Comparison")
+
+    details_comparaison = []
+
+    for _, candidat in comparaison.iterrows():
+
+        cv_path_rel = str(
+            candidat.get("cv_path", "")
+        ).strip().replace("\\", "/")
+
+        if not cv_path_rel:
+            continue
+
+        chemin = (BASE_DIR / cv_path_rel).resolve()
+
+        try:
+            chemin.relative_to(BASE_DIR.resolve())
+
+            if not chemin.is_file():
+                continue
+
+            lecteur = PdfReader(str(chemin))
+
+            texte_cv = "\n".join(
+                page.extract_text() or ""
+                for page in lecteur.pages
+            )
+
+            resultat = calculer_score(texte_cv)
+
+            ligne = {
+                "Candidate": candidat["nom"]
+            }
+
+            for critere, detail in resultat["détails"].items():
+
+                ligne[critere] = (
+                    f"{detail['score']}/{detail['maximum']}"
+                )
+
+            details_comparaison.append(ligne)
+
+        except Exception:
+            continue
+
+    if details_comparaison:
+
+        st.dataframe(
+            pd.DataFrame(details_comparaison),
+            hide_index=True,
+            use_container_width=True
+        )
+
+    else:
+
+        st.warning("No CV details available for comparison.")
+
+    st.markdown("---")
+
     st.subheader("📊 Comparative Analysis")
 
     colonnes = [
