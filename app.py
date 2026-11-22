@@ -1014,6 +1014,36 @@ def afficher_candidats():
                 unsafe_allow_html=True
             )
 
+        # ======================================
+            # SKILLS & COMPETENCIES ANALYSIS
+            # ======================================
+
+            st.markdown("---")
+
+            st.subheader("🧠 Skills & Competencies Analysis")
+
+            lecteur = PdfReader(io.BytesIO(contenu_pdf))
+
+            texte_profile = "\n".join(
+                page.extract_text() or ""
+                for page in lecteur.pages
+            )
+
+            analyse = calculer_score(texte_profile)
+
+            for critere, detail in analyse["détails"].items():
+
+                score = detail["score"]
+                maximum = detail["maximum"]
+
+                st.write(f"**{critere}** — {score}/{maximum}")
+
+                st.progress(
+                    min(max(score / maximum, 0), 1)
+                )
+
+                st.caption(detail["détail"])
+
         else:
 
             st.warning("CV non disponible.")
