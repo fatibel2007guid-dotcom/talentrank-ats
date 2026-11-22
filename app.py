@@ -1615,19 +1615,49 @@ def ajouter_candidat():
             return
 
        try:
-            chemin.relative_to(BASE_DIR.resolve())
-
-            if not chemin.is_file():
-                continue
-
-            lecteur = PdfReader(str(chemin))
+            lecteur = PdfReader(
+                io.BytesIO(cv.getvalue())
+            )
 
             texte_cv = "\n".join(
                 page.extract_text() or ""
                 for page in lecteur.pages
             )
 
-           resultat = calculer_score(texte_cv) 
+            resultat = calculer_score(texte_cv)
+
+            dossier_cvs = BASE_DIR / "data" / "cvs"
+            dossier_cvs.mkdir(parents=True, exist_ok=True)
+
+            nom_fichier = f"{uuid.uuid4().hex[:8]}.pdf"
+            chemin_cv = dossier_cvs / nom_fichier
+
+            chemin_cv.write_bytes(cv.getvalue())
+
+            nouvelle = pd.DataFrame([{
+                "offre": offre_selectionnee,
+                "nom": nom.strip(),
+                "email": email.strip(),
+                "score": resultat["score"],
+                "matching_score": "",
+                "statut": resultat["statut"],
+                "date": date.today().isoformat(),
+                "decision": "À décider",
+                "cv_path": str(chemin_cv.relative_to(BASE_DIR))
+            }])
+
+            candidats = charger_candidats()
+            candidats = pd.concat(
+                [candidats, nouvelle],
+                ignore_index=True
+            )
+
+            enregistrer_candidats(candidats)
+
+            st.success("Candidature enregistrée avec succès !")
+
+        except Exception as e:
+            st.error(f"Erreur lors du traitement du CV : {e}")
 
             offre_info = offres_disponibles[
                 offres_disponibles["titre"] == offre_selectionnee
