@@ -548,6 +548,8 @@ def afficher_offres():
 
                 "description": description.strip(),
 
+                "competences_requises": ", ".join(competences_requises),
+
                 "places": places,
 
                 "date": date.today().isoformat()
