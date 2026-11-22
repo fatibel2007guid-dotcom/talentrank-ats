@@ -425,7 +425,12 @@ def afficher_entretiens():
 
                 nom_candidat = entretien["candidat"]
 
-                masque = candidats["nom"] == nom_candidat
+                candidate_id = entretien["candidate_id"]
+
+masque = (
+    candidats["candidate_id"].astype(str)
+    == str(candidate_id)
+)
 
                 if resultat == "Réussi":
 
