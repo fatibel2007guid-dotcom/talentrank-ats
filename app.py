@@ -729,6 +729,83 @@ def enregistrer_offres(offres):
         index=False,
         encoding="utf-8-sig"
     )
+
+# ==========================================
+# KANBAN BOARD
+# ==========================================
+
+def afficher_kanban():
+
+    st.title("📋 Kanban Board")
+
+    st.markdown(
+        "Suivez l'évolution des candidatures "
+        "à travers les différentes étapes du recrutement."
+    )
+
+    candidats = charger_candidats()
+
+    if candidats.empty:
+        st.info("Aucun candidat disponible.")
+        return
+
+    candidats["decision"] = (
+        candidats["decision"]
+        .fillna("")
+        .astype(str)
+        .str.strip()
+    )
+
+    candidats.loc[
+        ~candidats["decision"].isin(DECISIONS),
+        "decision"
+    ] = "À décider"
+
+    colonnes = st.columns(5)
+
+    for i, decision in enumerate(DECISIONS):
+
+        with colonnes[i]:
+
+            st.subheader(decision)
+
+            selection = candidats[
+                candidats["decision"] == decision
+            ]
+
+            st.caption(f"{len(selection)} candidat(s)")
+
+            for index, candidat in selection.iterrows():
+
+                with st.container(border=True):
+
+                    st.write(f"**{candidat['nom']}**")
+                    st.caption(candidat["email"])
+
+                    st.metric(
+                        "Score",
+                        f"{candidat['score']}/100"
+                    )
+
+                    nouvelle_decision = st.selectbox(
+                        "Changer la décision",
+                        DECISIONS,
+                        index=DECISIONS.index(decision),
+                        key=f"kanban_{index}"
+                    )
+
+                    if st.button(
+                        "Mettre à jour",
+                        key=f"update_{index}"
+                    ):
+
+                        candidats.at[
+                            index, "decision"
+                        ] = nouvelle_decision
+
+                        enregistrer_candidats(candidats)
+
+                        st.rerun()
 # 4. SIDEBAR
 # ==========================================
 
@@ -749,7 +826,7 @@ with st.sidebar:
         "Add Candidate",
         "Job Offers",
         "Candidate Comparison",
-        "kanban Board",
+        "Kanban Board",
         "Interview Management"
     ],
     label_visibility="collapsed"
@@ -797,6 +874,31 @@ with st.sidebar:
         except Exception as erreur:
 
             st.error(str(erreur))
+
+# ==========================================
+# PAGE NAVIGATION
+# ==========================================
+
+if page == "Dashboard":
+    afficher_dashboard()
+
+elif page == "Candidates":
+    afficher_candidats()
+
+elif page == "Add Candidate":
+    ajouter_candidat()
+
+elif page == "Job Offers":
+    afficher_offres()
+
+elif page == "Candidate Comparison":
+    afficher_comparaison()
+
+elif page == "Kanban Board":
+    afficher_kanban()
+
+elif page == "Interview Management":
+    afficher_entretiens()
 # 5. INITIALISATION
 # ==========================================
 
@@ -1393,6 +1495,7 @@ def afficher_comparaison():
         "Select Job Offer",
         offres
     )
+    offre_disponibles = charger_offres() 
 
     candidats_offre = candidats[
         candidats["offre"] == offre_choisie
@@ -1467,8 +1570,8 @@ def afficher_comparaison():
             resultat = calculer_score(texte_cv) 
 
             offre_info = offres_disponibles[
-                offres_disponibles["titre"] == offre_selectionnee
-            ]
+    offres_disponibles["titre"] == offre_choisie
+]
 
             competences_requises = []
 
@@ -1759,122 +1862,5 @@ def ajouter_candidat():
 
             st.error(
                 f"Erreur lors du traitement du CV : {erreur}"
-            )
-# ==========================================
-# ==========================================
-# KANBAN BOARD
-# ==========================================
-
-def afficher_kanban():
-
-    st.title("📋 Kanban Board")
-
-    st.markdown(
-        "Suivez l'évolution des candidatures "
-        "à travers les différentes étapes du recrutement."
-    )
-
-    candidats = charger_candidats()
-
-    if candidats.empty:
-        st.info("Aucun candidat disponible.")
-        return
-
-    candidats["decision"] = (
-        candidats["decision"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-    )
-
-    candidats.loc[
-        ~candidats["decision"].isin(DECISIONS),
-        "decision"
-    ] = "À décider"
-
-    enregistrer_candidats(candidats)
-
-    colonnes = st.columns(5)
-
-    for i, decision in enumerate(DECISIONS):
-
-        with colonnes[i]:
-
-            st.subheader(decision)
-
-            candidats_colonne = candidats[
-                candidats["decision"] == decision
-            ]
-
-            st.caption(
-                f"{len(candidats_colonne)} candidat(s)"
-            )
-
-            for index, candidat in candidats_colonne.iterrows():
-
-                with st.container(border=True):
-
-                    st.write(f"**{candidat['nom']}**")
-
-                    st.caption(candidat["email"])
-
-                    st.metric(
-                        "Score",
-                        f"{candidat['score']}/100"
-                    )
-
-                    nouvelle_decision = st.selectbox(
-                        "Changer la décision",
-                        DECISIONS,
-                        index=DECISIONS.index(decision),
-                        key=f"kanban_{index}"
-                    )
-
-                    if st.button(
-                        "Mettre à jour",
-                        key=f"update_{index}",
-                        use_container_width=True
-                    ):
-
-                        candidats.at[
-                            index, "decision"
-                        ] = nouvelle_decision
-
-                        enregistrer_candidats(candidats)
-
-                        st.success("Décision mise à jour.")
-
-                        st.rerun()
-# 9. PAGE NAVIGATION
-# ==========================================
-
-if page == "Dashboard":
-
-    afficher_dashboard()
-
-elif page == "Candidates":
-
-    afficher_candidats()
-
-elif page == "Add Candidate":
-
-    ajouter_candidat()
-
-elif page == "Job Offers":
-
-    afficher_offres()
-
-elif page == "Candidate Comparison":
-
-    afficher_comparaison()
-
-elif page == "Kanban Board":
-
-    afficher_kanban()
-
-elif page == "Interview Management":
-
-    afficher_entretiens()
-    
-
+            ) 
 
