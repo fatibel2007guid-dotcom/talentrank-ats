@@ -1740,6 +1740,7 @@ def ajouter_candidat():
                 )
 
             nouvelle = pd.DataFrame([{
+                "candidate_id": uuid.uuid4().hex[:8],
                 "offre": offre_selectionnee,
                 "nom": nom.strip(),
                 "email": email.strip(),
