@@ -214,6 +214,39 @@ def enregistrer_candidats(tableau):
 # ==========================================
 # JOB OFFERS MANAGEMENT
 # ==========================================
+# ==========================================
+# INTERVIEWS MANAGEMENT FUNCTIONS
+# ==========================================
+
+def charger_entretiens():
+
+    if FICHIER_ENTRETIENS.exists():
+
+        return pd.read_csv(
+            FICHIER_ENTRETIENS,
+            keep_default_na=False
+        )
+
+    return pd.DataFrame(
+        columns=COLONNES_ENTRETIENS
+    )
+
+
+def enregistrer_entretiens(df):
+
+    FICHIER_ENTRETIENS.parent.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+    df = df.reindex(
+        columns=COLONNES_ENTRETIENS
+    )
+
+    df.to_csv(
+        FICHIER_ENTRETIENS,
+        index=False
+    )
 
 def afficher_offres():
 
@@ -429,6 +462,23 @@ COLONNES_OFFRES = [
     "description",
     "places",
     "date"
+]
+# ==========================================
+# INTERVIEWS DATABASE
+# ==========================================
+
+FICHIER_ENTRETIENS = BASE_DIR / "data" / "entretiens.csv"
+
+COLONNES_ENTRETIENS = [
+    "id",
+    "candidat",
+    "offre",
+    "date",
+    "heure",
+    "type",
+    "recruteur",
+    "feedback",
+    "resultat"
 ]
 
 
