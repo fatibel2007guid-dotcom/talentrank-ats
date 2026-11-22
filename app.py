@@ -13,7 +13,7 @@ import pandas as pd
 import streamlit as st
 
 from pypdf import PdfReader
-from scoring import calculer_score
+from scoring import calculer_score, calculer_matching_offre
 
 
 # ==========================================
