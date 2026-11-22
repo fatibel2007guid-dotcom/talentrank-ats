@@ -35,6 +35,7 @@ FICHIER_CANDIDATS = BASE_DIR / "data" / "candidats.csv"
 FICHIER_OFFRES = BASE_DIR / "data" / "offres.csv"
 
 COLONNES_CSV = [
+    "candidate_id",
     "nom",
     "email",
     "score",
@@ -182,7 +183,6 @@ def lancer_seed_demo():
 def charger_candidats():
 
     if not FICHIER_CANDIDATS.exists():
-
         return pd.DataFrame(columns=COLONNES_CSV)
 
     tableau = pd.read_csv(
@@ -191,13 +191,19 @@ def charger_candidats():
     ).fillna("")
 
     for colonne in COLONNES_CSV:
-
         if colonne not in tableau.columns:
-
             tableau[colonne] = ""
 
-    return tableau
+    # Ajouter un identifiant unique aux anciens candidats
+    for index in tableau.index:
 
+        if not str(tableau.at[index, "candidate_id"]).strip():
+
+            tableau.at[index, "candidate_id"] = uuid.uuid4().hex[:8]
+
+    enregistrer_candidats(tableau)
+
+    return tableau
 
 def enregistrer_candidats(tableau):
 
