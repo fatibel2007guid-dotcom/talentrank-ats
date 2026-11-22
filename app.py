@@ -247,6 +247,124 @@ def enregistrer_entretiens(df):
         FICHIER_ENTRETIENS,
         index=False
     )
+    # ==========================================
+# INTERVIEW MANAGEMENT
+# ==========================================
+
+def afficher_entretiens():
+
+    st.title("📅 Interview Management")
+
+    st.markdown(
+        "Planifiez et gérez les entretiens de recrutement."
+    )
+
+    st.markdown("---")
+
+    candidats = charger_candidats()
+    entretiens = charger_entretiens()
+
+    st.subheader("📌 Schedule Interview")
+
+    if candidats.empty:
+
+        st.warning("No candidates available.")
+        return
+
+    candidats = candidats.copy()
+
+    candidats["label"] = (
+        candidats["nom"].astype(str)
+        + " — "
+        + candidats["email"].astype(str)
+    )
+
+    with st.form("form_entretien"):
+
+        candidat_choisi = st.selectbox(
+            "Select Candidate",
+            candidats["label"].tolist()
+        )
+
+        ligne = candidats[
+            candidats["label"] == candidat_choisi
+        ].iloc[0]
+
+        offre = ligne.get("offre", "")
+
+        st.info(f"Job Offer: {offre}")
+
+        date_entretien = st.date_input(
+            "Interview Date",
+            min_value=date.today()
+        )
+
+        heure_entretien = st.time_input(
+            "Interview Time"
+        )
+
+        type_entretien = st.selectbox(
+            "Interview Type",
+            ["Online", "Présentiel"]
+        )
+
+        recruteur = st.text_input(
+            "Recruiter Name"
+        )
+
+        envoyer = st.form_submit_button(
+            "📅 Schedule Interview",
+            use_container_width=True
+        )
+
+    if envoyer:
+
+        if not recruteur.strip():
+
+            st.error("Please enter the recruiter name.")
+
+        else:
+
+            nouvelle = pd.DataFrame([{
+
+                "id": uuid.uuid4().hex[:8],
+                "candidat": ligne["nom"],
+                "offre": offre,
+                "date": date_entretien.isoformat(),
+                "heure": heure_entretien.strftime("%H:%M"),
+                "type": type_entretien,
+                "recruteur": recruteur,
+                "feedback": "",
+                "resultat": "En attente"
+
+            }])
+
+            entretiens = pd.concat(
+                [entretiens, nouvelle],
+                ignore_index=True
+            )
+
+            enregistrer_entretiens(entretiens)
+
+            st.success("Interview scheduled successfully! 🎉")
+
+            st.rerun()
+
+    st.markdown("---")
+
+    st.subheader("📋 Interview History")
+
+    if not entretiens.empty:
+
+        st.dataframe(
+            entretiens,
+            hide_index=True,
+            use_container_width=True
+        )
+
+    else:
+
+        st.info("No interviews scheduled yet.")
 
 def afficher_offres():
 
@@ -531,6 +649,7 @@ with st.sidebar:
         "Add Candidate",
         "Job Offers",
         "Candidate Comparison"
+        "Interview Management"
     ],
     label_visibility="collapsed"
 )
@@ -1529,3 +1648,7 @@ elif page == "Job Offers":
 elif page == "Candidate Comparison":
 
     afficher_comparaison()
+
+elif page == "Interview Management":
+
+    afficher_entretiens()
