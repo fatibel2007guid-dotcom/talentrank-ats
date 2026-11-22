@@ -1463,7 +1463,7 @@ def afficher_comparaison():
                 for page in lecteur.pages
             )
 
-           resultat = calculer_score(texte_cv) 
+            resultat = calculer_score(texte_cv) 
 
             offre_info = offres_disponibles[
                 offres_disponibles["titre"] == offre_selectionnee
