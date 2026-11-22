@@ -431,7 +431,6 @@ masque = (
     candidats["candidate_id"].astype(str)
     == str(candidate_id)
 )
-
                 if resultat == "Réussi":
 
                     candidats.loc[masque, "decision"] = "Accepté"
