@@ -38,6 +38,7 @@ COLONNES_CSV = [
     "nom",
     "email",
     "score",
+    "matching_score",
     "statut",
     "date",
     "decision",
