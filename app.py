@@ -479,7 +479,8 @@ with st.sidebar:
         "Dashboard",
         "Candidates",
         "Add Candidate",
-        "Job Offers"
+        "Job Offers",
+        "Candidate Comparison"
     ],
     label_visibility="collapsed"
 )
@@ -1090,6 +1091,105 @@ def afficher_candidats():
 
 
 # ==========================================
+# ==========================================
+# CANDIDATE COMPARISON
+# ==========================================
+
+def afficher_comparaison():
+
+    st.title("⚖️ Candidate Comparison")
+
+    st.markdown(
+        "Comparez plusieurs candidats pour une même offre d'emploi."
+    )
+
+    candidats = charger_candidats()
+
+    if candidats.empty:
+        st.warning("No candidates available.")
+        return
+
+    if "offre" not in candidats.columns:
+        st.warning("Job Offer information is missing.")
+        return
+
+    offres = candidats["offre"].dropna().unique().tolist()
+
+    if not offres:
+        st.info("No Job Offers linked to candidates.")
+        return
+
+    offre_choisie = st.selectbox(
+        "Select Job Offer",
+        offres
+    )
+
+    candidats_offre = candidats[
+        candidats["offre"] == offre_choisie
+    ].copy()
+
+    if len(candidats_offre) < 2:
+        st.warning(
+            "You need at least 2 candidates for comparison."
+        )
+        return
+
+    candidats_offre["score"] = pd.to_numeric(
+        candidats_offre["score"],
+        errors="coerce"
+    )
+
+    candidats_offre["label"] = (
+        candidats_offre["nom"].astype(str)
+        + " — "
+        + candidats_offre["email"].astype(str)
+    )
+
+    selection = st.multiselect(
+        "Select candidates to compare",
+        candidats_offre["label"].tolist(),
+        max_selections=3
+    )
+
+    if len(selection) < 2:
+        st.info("Select at least 2 candidates.")
+        return
+
+    comparaison = candidats_offre[
+        candidats_offre["label"].isin(selection)
+    ].copy()
+
+    comparaison = comparaison.sort_values(
+        "score",
+        ascending=False
+    )
+
+    st.markdown("---")
+
+    st.subheader("📊 Comparative Analysis")
+
+    colonnes = [
+        "nom", "email", "score", "statut", "decision"
+    ]
+
+    st.dataframe(
+        comparaison[colonnes].rename(columns={
+            "nom": "Candidate",
+            "email": "Email",
+            "score": "Matching Score",
+            "statut": "Status",
+            "decision": "Recruitment Decision"
+        }),
+        hide_index=True,
+        use_container_width=True
+    )
+
+    meilleur = comparaison.iloc[0]
+
+    st.success(
+        f"🏆 Highest Matching Score: {meilleur['nom']} "
+        f"({meilleur['score']}/100)"
+    )
 # 8. ADD CANDIDATE
 # ==========================================
 
@@ -1316,3 +1416,7 @@ elif page == "Add Candidate":
 elif page == "Job Offers":
 
     afficher_offres()
+
+elif page == "Candidate Comparison":
+
+    afficher_comparaison()
