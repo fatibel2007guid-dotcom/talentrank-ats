@@ -1543,6 +1543,7 @@ def afficher_comparaison():
 # 8. ADD CANDIDATE
 # ==========================================
 
+
 def ajouter_candidat():
 
     st.title("Add New Candidate")
@@ -1614,7 +1615,6 @@ def ajouter_candidat():
             return
 
         try:
-
             lecteur = PdfReader(
                 io.BytesIO(cv.getvalue())
             )
@@ -1625,11 +1625,9 @@ def ajouter_candidat():
             )
 
             if not texte_cv.strip():
-
                 st.error(
                     "Impossible d'extraire du texte de ce CV."
                 )
-
                 return
 
             DOSSIER_CV.mkdir(
@@ -1638,7 +1636,6 @@ def ajouter_candidat():
             )
 
             nom_fichier = f"{uuid.uuid4().hex}.pdf"
-
             chemin_cv = DOSSIER_CV / nom_fichier
 
             chemin_cv.write_bytes(
@@ -1646,6 +1643,28 @@ def ajouter_candidat():
             )
 
             resultat = calculer_score(texte_cv)
+
+            offre_info = offres_disponibles[
+                offres_disponibles["titre"] == offre_selectionnee
+            ]
+
+            competences_requises = []
+
+            if not offre_info.empty:
+                competences_brutes = offre_info.iloc[0].get(
+                    "competences_requises", ""
+                )
+
+                competences_requises = [
+                    c.strip()
+                    for c in str(competences_brutes).split(",")
+                    if c.strip()
+                ]
+
+            matching = calculer_matching_offre(
+                texte_cv,
+                competences_requises
+            )
 
             nouvelle = pd.DataFrame([{
 
