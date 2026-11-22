@@ -412,6 +412,22 @@ def afficher_entretiens():
                 index_entretien, "resultat"
             ] = resultat
 
+            if resultat in ["Réussi", "Échoué"]:
+
+        candidats = charger_candidats()
+
+        nom_candidat = entretien["candidat"]
+
+        masque = candidats["nom"] == nom_candidat
+
+        if resultat == "Réussi":
+            candidats.loc[masque, "decision"] = "Accepté"
+
+        elif resultat == "Échoué":
+            candidats.loc[masque, "decision"] = "Refusé"
+
+        enregistrer_candidats(candidats)
+
             enregistrer_entretiens(entretiens)
 
             st.success("Interview evaluation saved!")
