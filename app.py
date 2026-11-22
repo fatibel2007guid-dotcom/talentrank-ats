@@ -695,6 +695,7 @@ FICHIER_ENTRETIENS = BASE_DIR / "data" / "entretiens.csv"
 
 COLONNES_ENTRETIENS = [
     "id",
+    "candidate_id",
     "candidat",
     "offre",
     "date",
