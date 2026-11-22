@@ -1465,7 +1465,6 @@ def afficher_comparaison():
 
            resultat = calculer_score(texte_cv)
 
-            # Récupérer les compétences de l'offre sélectionnée
             offre_info = offres_disponibles[
                 offres_disponibles["titre"] == offre_selectionnee
             ]
@@ -1483,7 +1482,6 @@ def afficher_comparaison():
                     if c.strip()
                 ]
 
-            # Calcul du matching avec l'offre
             matching = calculer_matching_offre(
                 texte_cv,
                 competences_requises
