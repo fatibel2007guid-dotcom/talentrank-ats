@@ -69,90 +69,158 @@ DECISIONS = [
 st.markdown("""
 <style>
 
-@import url(
-'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap'
-);
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+:root {
+    --primary: #172554;
+    --secondary: #635BDB;
+    --accent: #8B5CF6;
+    --background: #F5F6FA;
+    --surface: #FFFFFF;
+    --text: #1E293B;
+    --muted: #64748B;
+    --border: #E8EAF2;
+}
 
 html, body, [class*="css"] {
     font-family: 'Inter', sans-serif;
 }
 
 .stApp {
-    background-color: #F5F6FA;
+    background: var(--background);
+    color: var(--text);
 }
 
 .block-container {
-    padding-top: 2rem;
-    padding-bottom: 3rem;
-    max-width: 1450px;
+    padding: 2rem 2.5rem 3rem;
+    max-width: 1500px;
 }
 
+h1 {
+    color: var(--primary) !important;
+    font-size: 2rem !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.7px;
+}
+
+h2, h3 {
+    color: var(--primary) !important;
+    font-weight: 700 !important;
+}
+
+p, label {
+    color: var(--text);
+}
+
+/* SIDEBAR */
+
 section[data-testid="stSidebar"] {
-    background-color: #172554;
+    background: linear-gradient(180deg, #172554 0%, #252B64 100%);
 }
 
 section[data-testid="stSidebar"] * {
     color: white;
 }
 
-section[data-testid="stSidebar"] div[data-baseweb="radio"] label {
-    color: white;
+section[data-testid="stSidebar"] hr {
+    border-color: rgba(255,255,255,0.15);
 }
 
-h1 {
-    color: #172554 !important;
-    font-weight: 800 !important;
+section[data-testid="stSidebar"] [data-testid="stRadio"] label {
+    padding: 9px 12px;
+    border-radius: 9px;
+    transition: background 0.2s ease;
 }
 
-h2, h3 {
-    color: #172554 !important;
-    font-weight: 700 !important;
+section[data-testid="stSidebar"] [data-testid="stRadio"] label:hover {
+    background: rgba(255,255,255,0.12);
 }
+
+/* METRIC CARDS */
 
 div[data-testid="stMetric"] {
-    background-color: white;
-    border: 1px solid #E8EAF2;
-    padding: 22px;
+    background: var(--surface);
+    border: 1px solid var(--border);
     border-radius: 14px;
-    box-shadow: 0 3px 12px rgba(20, 35, 80, 0.04);
+    padding: 20px;
+    box-shadow: 0 3px 12px rgba(23,37,84,0.04);
 }
 
 div[data-testid="stMetricLabel"] {
-    color: #64748B;
+    color: var(--muted);
     font-weight: 600;
 }
 
 div[data-testid="stMetricValue"] {
-    color: #172554;
+    color: var(--primary);
     font-weight: 800;
 }
 
+/* BUTTONS */
+
 .stButton button,
 .stFormSubmitButton button {
-    background-color: #635BDB;
+    background: var(--secondary);
     color: white;
     border: none;
     border-radius: 9px;
     font-weight: 600;
-    padding: 10px 20px;
+    padding: 10px 18px;
+    transition: all 0.2s ease;
 }
 
 .stButton button:hover,
 .stFormSubmitButton button:hover {
-    background-color: #5148C8;
+    background: #5148C8;
     color: white;
+    border: none;
 }
 
-.stTextInput input {
-    border-radius: 8px;
+/* INPUTS */
+
+.stTextInput input,
+.stTextArea textarea,
+.stSelectbox div[data-baseweb="select"] > div {
+    border-radius: 9px;
 }
+
+/* CONTAINERS */
+
+div[data-testid="stVerticalBlockBorderWrapper"] {
+    background: white;
+    border-radius: 12px;
+    border-color: var(--border);
+}
+
+/* TABLES */
 
 div[data-testid="stDataFrame"] {
+    background: white;
+    border: 1px solid var(--border);
     border-radius: 12px;
+    overflow: hidden;
 }
 
+/* EXPANDERS */
+
+div[data-testid="stExpander"] {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+}
+
+/* SEPARATORS */
+
 hr {
-    border-color: #E5E7EB;
+    border-color: var(--border);
+    margin-top: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+/* ALERTS */
+
+div[data-testid="stAlert"] {
+    border-radius: 10px;
 }
 
 </style>
