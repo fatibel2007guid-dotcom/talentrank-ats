@@ -264,7 +264,7 @@ def afficher_entretiens():
     candidats = charger_candidats()
     entretiens = charger_entretiens()
 
-st.subheader("📌 Schedule Interview")
+    st.subheader("📌 Schedule Interview")
 
     if candidats.empty:
 
@@ -351,85 +351,77 @@ st.subheader("📌 Schedule Interview")
             st.rerun()
 
     st.markdown("---")
-    
-        st.subheader("📋 Interview History")
 
-if not entretiens.empty:
+    st.subheader("📋 Interview History")
 
-    st.dataframe(
-        entretiens,
-        hide_index=True,
-        use_container_width=True
-    )
+    if not entretiens.empty:
 
-    st.markdown("---")
-
-       st.subheader("📋 Interview History")
-
-if not entretiens.empty:
-
-    st.dataframe(
-        entretiens,
-        hide_index=True,
-        use_container_width=True
-    )
-
-    st.markdown("---")
-    st.subheader("📝 Interview Evaluation")
-
-    index_entretien = st.selectbox(
-        "Select an Interview",
-        entretiens.index.tolist(),
-        format_func=lambda i: (
-            f"{entretiens.at[i, 'candidat']} — "
-            f"{entretiens.at[i, 'date']} "
-            f"{entretiens.at[i, 'heure']}"
-        )
-    )
-
-    entretien = entretiens.loc[index_entretien]
-
-    with st.form("form_feedback"):
-
-        feedback = st.text_area(
-            "Recruiter Feedback",
-            value=str(entretien["feedback"])
+        st.dataframe(
+            entretiens,
+            hide_index=True,
+            use_container_width=True
         )
 
-        resultat = st.selectbox(
-            "Interview Result",
-            ["En attente", "Réussi", "Échoué"],
-            index=[
-                "En attente", "Réussi", "Échoué"
-            ].index(
-                entretien["resultat"]
-                if entretien["resultat"] in
-                ["En attente", "Réussi", "Échoué"]
-                else "En attente"
+        st.markdown("---")
+
+        st.subheader("📝 Interview Evaluation")
+
+        index_entretien = st.selectbox(
+            "Select an Interview",
+            entretiens.index.tolist(),
+            format_func=lambda i: (
+                f"{entretiens.at[i, 'candidat']} — "
+                f"{entretiens.at[i, 'date']} "
+                f"{entretiens.at[i, 'heure']}"
             )
         )
 
-        sauvegarder = st.form_submit_button(
-            "Save Evaluation"
-        )
+        entretien = entretiens.loc[index_entretien]
 
-    if sauvegarder:
+        with st.form("form_feedback"):
 
-        entretiens.at[
-            index_entretien, "feedback"
-        ] = feedback
+            feedback = st.text_area(
+                "Recruiter Feedback",
+                value=str(entretien["feedback"])
+            )
 
-        entretiens.at[
-            index_entretien, "resultat"
-        ] = resultat
+            resultat = st.selectbox(
+                "Interview Result",
+                ["En attente", "Réussi", "Échoué"],
+                index=[
+                    "En attente", "Réussi", "Échoué"
+                ].index(
+                    entretien["resultat"]
+                    if entretien["resultat"] in
+                    ["En attente", "Réussi", "Échoué"]
+                    else "En attente"
+                )
+            )
 
-        enregistrer_entretiens(entretiens)
+            sauvegarder = st.form_submit_button(
+                "Save Evaluation"
+            )
 
-        st.success("Interview evaluation saved!")
-        st.rerun()
+        if sauvegarder:
 
-else:
-    st.info("No interviews scheduled yet.")
+            entretiens.at[
+                index_entretien, "feedback"
+            ] = feedback
+
+            entretiens.at[
+                index_entretien, "resultat"
+            ] = resultat
+
+            enregistrer_entretiens(entretiens)
+
+            st.success("Interview evaluation saved!")
+
+            st.rerun()
+
+    else:
+
+        st.info("No interviews scheduled yet.")
+
 
 def afficher_offres():
 
