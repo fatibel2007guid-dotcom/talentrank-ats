@@ -876,29 +876,6 @@ with st.sidebar:
             st.error(str(erreur))
 
 # ==========================================
-# PAGE NAVIGATION
-# ==========================================
-
-if page == "Dashboard":
-    afficher_dashboard()
-
-elif page == "Candidates":
-    afficher_candidats()
-
-elif page == "Add Candidate":
-    ajouter_candidat()
-
-elif page == "Job Offers":
-    afficher_offres()
-
-elif page == "Candidate Comparison":
-    afficher_comparaison()
-
-elif page == "Kanban Board":
-    afficher_kanban()
-
-elif page == "Interview Management":
-    afficher_entretiens()
 # 5. INITIALISATION
 # ==========================================
 
@@ -1863,4 +1840,29 @@ def ajouter_candidat():
             st.error(
                 f"Erreur lors du traitement du CV : {erreur}"
             ) 
+
+# ==========================================
+# PAGE NAVIGATION
+# ==========================================
+
+if page == "Dashboard":
+    afficher_dashboard()
+
+elif page == "Candidates":
+    afficher_candidats()
+
+elif page == "Add Candidate":
+    ajouter_candidat()
+
+elif page == "Job Offers":
+    afficher_offres()
+
+elif page == "Candidate Comparison":
+    afficher_comparaison()
+
+elif page == "Kanban Board":
+    afficher_kanban()
+
+elif page == "Interview Management":
+    afficher_entretiens()
 
