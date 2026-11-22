@@ -423,14 +423,13 @@ def afficher_entretiens():
 
                 candidats = charger_candidats()
 
-                nom_candidat = entretien["candidat"]
-
                 candidate_id = entretien["candidate_id"]
 
-masque = (
-    candidats["candidate_id"].astype(str)
-    == str(candidate_id)
-)
+                masque = (
+                    candidats["candidate_id"].astype(str)
+                    == str(candidate_id)
+                )
+
                 if resultat == "Réussi":
 
                     candidats.loc[masque, "decision"] = "Accepté"
@@ -446,7 +445,6 @@ masque = (
             st.success("Interview evaluation saved!")
 
             st.rerun()
-
     else:
 
         st.info("No interviews scheduled yet.")
