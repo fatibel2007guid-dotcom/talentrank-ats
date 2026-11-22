@@ -351,7 +351,7 @@ def afficher_entretiens():
             st.rerun()
 
     st.markdown("---")
-     
+    
         st.subheader("📋 Interview History")
 
 if not entretiens.empty:
