@@ -1559,20 +1559,16 @@ def ajouter_candidat():
         st.subheader("Personal Information")
 
         nom = st.text_input("Full Name *")
-
         email = st.text_input("Email Address *")
 
         offres_disponibles = charger_offres()
 
         if not offres_disponibles.empty:
-
             offre_selectionnee = st.selectbox(
                 "Select Job Offer *",
                 offres_disponibles["titre"].tolist()
             )
-
         else:
-
             offre_selectionnee = ""
             st.warning(
                 "No job offers available. Create a Job Offer first."
@@ -1595,26 +1591,21 @@ def ajouter_candidat():
         erreurs = []
 
         if not nom.strip():
-
             erreurs.append("Le nom est obligatoire.")
 
         if not email.strip() or "@" not in email:
-
             erreurs.append("Veuillez saisir un e-mail valide.")
 
         if cv is None:
-
             erreurs.append("Veuillez joindre un CV.")
 
         if erreurs:
-
             for erreur in erreurs:
-
                 st.error(erreur)
-
             return
 
         try:
+
             lecteur = PdfReader(
                 io.BytesIO(cv.getvalue())
             )
@@ -1634,12 +1625,41 @@ def ajouter_candidat():
 
             chemin_cv.write_bytes(cv.getvalue())
 
+            matching = None
+            competences_requises = []
+
+            if offre_selectionnee and not offres_disponibles.empty:
+
+                offre_info = offres_disponibles[
+                    offres_disponibles["titre"] == offre_selectionnee
+                ]
+
+                if not offre_info.empty:
+
+                    competences_brutes = offre_info.iloc[0].get(
+                        "competences_requises", ""
+                    )
+
+                    competences_requises = [
+                        c.strip()
+                        for c in str(competences_brutes).split(",")
+                        if c.strip()
+                    ]
+
+            if competences_requises:
+                matching = calculer_matching_offre(
+                    texte_cv,
+                    competences_requises
+                )
+
             nouvelle = pd.DataFrame([{
                 "offre": offre_selectionnee,
                 "nom": nom.strip(),
                 "email": email.strip(),
                 "score": resultat["score"],
-                "matching_score": "",
+                "matching_score": (
+                    matching["score"] if matching else ""
+                ),
                 "statut": resultat["statut"],
                 "date": date.today().isoformat(),
                 "decision": "À décider",
@@ -1647,122 +1667,13 @@ def ajouter_candidat():
             }])
 
             candidats = charger_candidats()
+
             candidats = pd.concat(
                 [candidats, nouvelle],
                 ignore_index=True
             )
 
             enregistrer_candidats(candidats)
-
-            st.success("Candidature enregistrée avec succès !")
-
-        except Exception as e:
-            st.error(f"Erreur lors du traitement du CV : {e}")
-
-            offre_info = offres_disponibles[
-                offres_disponibles["titre"] == offre_selectionnee
-            ]
-
-            competences_requises = []
-
-            if not offre_info.empty:
-                competences_brutes = offre_info.iloc[0].get(
-                    "competences_requises", ""
-                )
-
-                competences_requises = [
-                    c.strip()
-                    for c in str(competences_brutes).split(",")
-                    if c.strip()
-                ]
-
-            matching = calculer_matching_offre(
-                texte_cv,
-                competences_requises
-            )
-
-            ligne = {
-                "Candidate": candidat["nom"]
-            }
-
-            for critere, detail in resultat["détails"].items():
-
-                ligne[critere] = (
-                    f"{detail['score']}/{detail['maximum']}"
-                )
-
-            details_comparaison.append(ligne)
-
-        except Exception:
-            continue
-
-    if details_comparaison:
-
-        st.dataframe(
-            pd.DataFrame(details_comparaison),
-            hide_index=True,
-            use_container_width=True
-        )
-
-    else:
-
-        st.warning("No CV details available for comparison.")
-
-    st.markdown("---")
-
-    st.subheader("📊 Comparative Analysis")
-
-    colonnes = [
-        "nom", "email", "score", "statut", "decision"
-    ]
-
-    st.dataframe(
-        comparaison[colonnes].rename(columns={
-            "nom": "Candidate",
-            "email": "Email",
-            "score": "Matching Score",
-            "statut": "Status",
-            "decision": "Recruitment Decision"
-        }),
-        hide_index=True,
-        use_container_width=True
-    )
-
-    meilleur = comparaison.iloc[0]
-
-    st.success(
-        f"🏆 Highest Matching Score: {meilleur['nom']} "
-        f"({meilleur['score']}/100)"
-    )
-
-                "offre": offre_selectionnee,
-
-                "nom": nom.strip(),
-
-                "email": email.strip(),
-
-                "score": resultat["score"],
-
-                "statut": resultat["statut"],
-
-                "date": date.today().isoformat(),
-
-                "decision": "À décider",
-
-                "cv_path": str(
-                    chemin_cv.relative_to(BASE_DIR)
-                )
-
-            }])
-
-            nouveau_tableau = pd.concat(
-                [tableau, nouvelle],
-                ignore_index=True
-            )
-
-            enregistrer_candidats(
-                nouveau_tableau
-            )
 
             st.success(
                 f"Candidature reçue pour {nom} !"
@@ -1771,13 +1682,31 @@ def ajouter_candidat():
             st.subheader("CV Analysis")
 
             st.metric(
-                "Matching Score",
+                "General Score",
                 f"{resultat['score']}/100"
             )
 
             st.write(
                 f"**Status : {resultat['statut']}**"
             )
+
+            if matching:
+
+                st.metric(
+                    "Job Matching Score",
+                    f"{matching['score']}/100"
+                )
+
+                st.write("**Skills Found:**")
+                st.write(matching["competences_trouvees"])
+
+                st.write("**Missing Skills:**")
+                st.write(matching["competences_manquantes"])
+
+            else:
+                st.info(
+                    "No required skills defined for this offer."
+                )
 
             details = resultat.get(
                 "détails",
@@ -1830,9 +1759,6 @@ def ajouter_candidat():
             st.error(
                 f"Erreur lors du traitement du CV : {erreur}"
             )
-
-
-# ==========================================
 # ==========================================
 # 9. PAGE NAVIGATION
 # ==========================================
