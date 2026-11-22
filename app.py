@@ -792,6 +792,19 @@ def charger_offres():
 
             offres[colonne] = ""
 
+    # Supprimer les offres exactement identiques
+    colonnes_comparaison = [
+        colonne for colonne in COLONNES_OFFRES
+        if colonne != "id"
+    ]
+
+    offres = offres.drop_duplicates(
+        subset=colonnes_comparaison,
+        keep="first"
+    ).reset_index(drop=True)
+
+    enregistrer_offres(offres)
+
     return offres
 
 
