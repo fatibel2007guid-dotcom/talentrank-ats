@@ -528,6 +528,10 @@ def afficher_offres():
 
     st.markdown("---")
 
+    # ==========================================
+    # CREATE A NEW JOB OFFER
+    # ==========================================
+
     st.subheader("➕ Create a New Job Offer")
 
     with st.form("formulaire_offre"):
@@ -576,25 +580,25 @@ def afficher_offres():
         )
 
         competences_requises = st.multiselect(
-    "Required Skills *",
-    [
-        "Recrutement",
-        "Sourcing",
-        "Entretien",
-        "ATS",
-        "Excel",
-        "Rédaction d'annonces",
-        "Paie",
-        "Droit du travail",
-        "GPEC",
-        "Marketing",
-        "Communication",
-        "Gestion de projet",
-        "Analyse de données",
-        "Management",
-        "Organisation"
-    ]
-)
+            "Required Skills *",
+            [
+                "Recrutement",
+                "Sourcing",
+                "Entretien",
+                "ATS",
+                "Excel",
+                "Rédaction d'annonces",
+                "Paie",
+                "Droit du travail",
+                "GPEC",
+                "Marketing",
+                "Communication",
+                "Gestion de projet",
+                "Analyse de données",
+                "Management",
+                "Organisation"
+            ]
+        )
 
         publier = st.form_submit_button(
             "Publish Job Offer",
@@ -614,21 +618,13 @@ def afficher_offres():
             nouvelle_offre = pd.DataFrame([{
 
                 "id": uuid.uuid4().hex[:8],
-
                 "titre": titre.strip(),
-
                 "departement": departement,
-
                 "contrat": contrat,
-
                 "localisation": localisation.strip(),
-
                 "description": description.strip(),
-
                 "competences_requises": ", ".join(competences_requises),
-
                 "places": places,
-
                 "date": date.today().isoformat()
 
             }])
@@ -644,27 +640,37 @@ def afficher_offres():
 
             st.rerun()
 
+    # ==========================================
+    # PUBLISHED JOB OFFERS
+    # ==========================================
+
     st.markdown("---")
 
     st.subheader("📋 Published Job Offers")
 
     offres = charger_offres()
+    candidats = charger_candidats()
 
     if offres.empty:
 
         st.info("No job offers published yet.")
         return
 
+    st.metric("Total Job Offers", len(offres))
+
     for _, offre in offres.iterrows():
 
-        candidats_offre = tableau[
-            tableau["offre"].astype(str) == str(offre["titre"])
+        candidats_offre = candidats[
+            candidats["offre"].astype(str) == str(offre["titre"])
         ]
 
         total_candidats = len(candidats_offre)
 
         score_moyen = (
-            candidats_offre["score"].mean()
+            pd.to_numeric(
+                candidats_offre["score"],
+                errors="coerce"
+            ).mean()
             if total_candidats > 0 else 0
         )
 
@@ -674,74 +680,66 @@ def afficher_offres():
             ]
         )
 
-        st.markdown(f"### 📊 {offre['titre']}")
+        with st.container(border=True):
 
-        c1, c2, c3, c4 = st.columns(4)
+            st.markdown(f"### 💼 {offre['titre']}")
 
-        c1.metric("Total Applicants", total_candidats)
+            col1, col2, col3 = st.columns(3)
 
-        c2.metric("Average Score", f"{score_moyen:.1f}/100")
+            col1.write(f"**Department:** {offre['departement']}")
 
-        c3.metric("Shortlisted", presel)
+            col2.write(f"**Contract:** {offre['contrat']}")
 
-        c4.metric("Available Positions", offre["places"])
+            col3.write(f"**Location:** {offre['localisation']}")
 
-        with st.expander("View Applicants"):
+            st.markdown("---")
 
-            if total_candidats > 0:
+            c1, c2, c3, c4 = st.columns(4)
 
-                st.dataframe(
-                    candidats_offre[
-                        ["nom", "email", "score", "decision"]
-                    ].rename(columns={
-                        "nom": "Candidate",
-                        "email": "Email",
-                        "score": "Matching Score",
-                        "decision": "Decision"
-                    }),
-                    hide_index=True,
-                    use_container_width=True
-                )
+            c1.metric("Total Applicants", total_candidats)
 
-            else:
+            c2.metric(
+                "Average Score",
+                f"{score_moyen:.1f}/100"
+            )
 
-                st.info("No applicants for this offer yet.")
+            c3.metric("Shortlisted", presel)
 
-        st.markdown("---")
+            c4.metric("Available Positions", offre["places"])
 
-    offres = charger_offres()
+            with st.expander("📄 View Job Description"):
 
-    if offres.empty:
-
-        st.info("No job offers published yet.")
-
-    else:
-
-        st.metric("Total Job Offers", len(offres))
-
-        for _, offre in offres.iterrows():
-
-            with st.container(border=True):
-
-                st.markdown(f"### 💼 {offre['titre']}")
-
-                col1, col2, col3 = st.columns(3)
-
-                col1.write(f"**Department:** {offre['departement']}")
-
-                col2.write(f"**Contract:** {offre['contrat']}")
-
-                col3.write(f"**Location:** {offre['localisation']}")
+                st.write(offre["description"])
 
                 st.write(
-                    f"**Available Positions:** {offre['places']}"
+                    f"**Required Skills:** "
+                    f"{offre['competences_requises']}"
                 )
 
-                with st.expander("View Job Description"):
+                st.caption(
+                    f"Published on: {offre['date']}"
+                )
 
-                    st.write(offre["description"])
+            with st.expander("👥 View Applicants"):
 
-                st.caption(f"Published on: {offre['date']}")
+                if total_candidats > 0:
+
+                    st.dataframe(
+                        candidats_offre[
+                            ["nom", "email", "score", "decision"]
+                        ].rename(columns={
+                            "nom": "Candidate",
+                            "email": "Email",
+                            "score": "Matching Score",
+                            "decision": "Decision"
+                        }),
+                        hide_index=True,
+                        use_container_width=True
+                    )
+
+                else:
+
+                    st.info("No applicants for this offer yet.")
                 # ==========================================
 # JOB OFFERS DATABASE
 # ==========================================
