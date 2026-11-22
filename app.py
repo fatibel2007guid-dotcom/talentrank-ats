@@ -333,8 +333,8 @@ def afficher_entretiens():
         else:
 
             nouvelle = pd.DataFrame([{
-
                 "id": uuid.uuid4().hex[:8],
+                "candidate_id": ligne["candidate_id"],
                 "candidat": ligne["nom"],
                 "offre": offre,
                 "date": date_entretien.isoformat(),
