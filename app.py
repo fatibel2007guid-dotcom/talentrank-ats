@@ -1875,3 +1875,6 @@ elif page == "Kanban Board":
 elif page == "Interview Management":
 
     afficher_entretiens()
+    
+
+
