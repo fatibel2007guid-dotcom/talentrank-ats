@@ -41,6 +41,7 @@ COLONNES_CSV = [
     "statut",
     "date",
     "decision",
+    "offre",
     "cv_path"
 ]
 
