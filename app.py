@@ -1004,6 +1004,22 @@ def ajouter_candidat():
 
         email = st.text_input("Email Address *")
 
+        offres_disponibles = charger_offres()
+
+        if not offres_disponibles.empty:
+
+            offre_selectionnee = st.selectbox(
+                "Select Job Offer *",
+                offres_disponibles["titre"].tolist()
+            )
+
+        else:
+
+            offre_selectionnee = ""
+            st.warning(
+                "No job offers available. Create a Job Offer first."
+            )
+
         st.subheader("Documents")
 
         cv = st.file_uploader(
@@ -1075,6 +1091,8 @@ def ajouter_candidat():
             resultat = calculer_score(texte_cv)
 
             nouvelle = pd.DataFrame([{
+
+                "offre": offre_selectionnee,
 
                 "nom": nom.strip(),
 
