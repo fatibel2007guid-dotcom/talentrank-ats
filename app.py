@@ -1776,6 +1776,20 @@ def afficher_kanban():
 
     candidats = charger_candidats()
 
+    candidats["decision"] = (
+    candidats["decision"]
+    .fillna("")
+    .astype(str)
+    .str.strip()
+)
+
+candidats.loc[
+    ~candidats["decision"].isin(DECISIONS),
+    "decision"
+] = "À décider"
+
+enregistrer_candidats(candidats)
+
     if candidats.empty:
         st.info("Aucun candidat disponible.")
         return
