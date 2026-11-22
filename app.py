@@ -498,6 +498,27 @@ def afficher_offres():
             placeholder="Describe the position and required skills..."
         )
 
+        competences_requises = st.multiselect(
+    "Required Skills *",
+    [
+        "Recrutement",
+        "Sourcing",
+        "Entretien",
+        "ATS",
+        "Excel",
+        "Rédaction d'annonces",
+        "Paie",
+        "Droit du travail",
+        "GPEC",
+        "Marketing",
+        "Communication",
+        "Gestion de projet",
+        "Analyse de données",
+        "Management",
+        "Organisation"
+    ]
+)
+
         publier = st.form_submit_button(
             "Publish Job Offer",
             use_container_width=True
@@ -653,6 +674,7 @@ COLONNES_OFFRES = [
     "contrat",
     "localisation",
     "description",
+    "competences_requises",
     "places",
     "date"
 ]
