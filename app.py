@@ -1614,7 +1614,7 @@ def ajouter_candidat():
 
             return
 
-       try:
+        try:
             lecteur = PdfReader(
                 io.BytesIO(cv.getvalue())
             )
