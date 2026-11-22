@@ -1463,31 +1463,31 @@ def afficher_comparaison():
                 for page in lecteur.pages
             )
 
-            resultat = calculer_score(texte_cv)
+           resultat = calculer_score(texte_cv)
 
             # Récupérer les compétences de l'offre sélectionnée
-offre_info = offres_disponibles[
-    offres_disponibles["titre"] == offre_selectionnee
-]
+            offre_info = offres_disponibles[
+                offres_disponibles["titre"] == offre_selectionnee
+            ]
 
-competences_requises = []
+            competences_requises = []
 
-if not offre_info.empty:
-    competences_brutes = offre_info.iloc[0].get(
-        "competences_requises", ""
-    )
+            if not offre_info.empty:
+                competences_brutes = offre_info.iloc[0].get(
+                    "competences_requises", ""
+                )
 
-    competences_requises = [
-        c.strip()
-        for c in str(competences_brutes).split(",")
-        if c.strip()
-    ]
+                competences_requises = [
+                    c.strip()
+                    for c in str(competences_brutes).split(",")
+                    if c.strip()
+                ]
 
-# Calcul du matching avec l'offre
-matching = calculer_matching_offre(
-    texte_cv,
-    competences_requises
-)
+            # Calcul du matching avec l'offre
+            matching = calculer_matching_offre(
+                texte_cv,
+                competences_requises
+            )
 
             ligne = {
                 "Candidate": candidat["nom"]
