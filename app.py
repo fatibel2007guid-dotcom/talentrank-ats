@@ -821,6 +821,7 @@ def afficher_candidats():
             [
                 "nom",
                 "email",
+                "offre",
                 "score",
                 "statut",
                 "date",
@@ -830,6 +831,7 @@ def afficher_candidats():
             columns={
                 "nom": "Candidate",
                 "email": "Email",
+                "offre": "Job Offer",
                 "score": "Score",
                 "statut": "Status",
                 "date": "Date",
