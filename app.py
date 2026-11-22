@@ -327,6 +327,67 @@ def afficher_offres():
     if offres.empty:
 
         st.info("No job offers published yet.")
+        return
+
+    for _, offre in offres.iterrows():
+
+        candidats_offre = tableau[
+            tableau["offre"].astype(str) == str(offre["titre"])
+        ]
+
+        total_candidats = len(candidats_offre)
+
+        score_moyen = (
+            candidats_offre["score"].mean()
+            if total_candidats > 0 else 0
+        )
+
+        presel = len(
+            candidats_offre[
+                candidats_offre["decision"] == "Présélectionné"
+            ]
+        )
+
+        st.markdown(f"### 📊 {offre['titre']}")
+
+        c1, c2, c3, c4 = st.columns(4)
+
+        c1.metric("Total Applicants", total_candidats)
+
+        c2.metric("Average Score", f"{score_moyen:.1f}/100")
+
+        c3.metric("Shortlisted", presel)
+
+        c4.metric("Available Positions", offre["places"])
+
+        with st.expander("View Applicants"):
+
+            if total_candidats > 0:
+
+                st.dataframe(
+                    candidats_offre[
+                        ["nom", "email", "score", "decision"]
+                    ].rename(columns={
+                        "nom": "Candidate",
+                        "email": "Email",
+                        "score": "Matching Score",
+                        "decision": "Decision"
+                    }),
+                    hide_index=True,
+                    use_container_width=True
+                )
+
+            else:
+
+                st.info("No applicants for this offer yet.")
+
+        st.markdown("---")
+
+    offres = charger_offres()
+
+    if offres.empty:
+
+        st.info("No job offers published yet.")
 
     else:
 
