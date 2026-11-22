@@ -1463,7 +1463,7 @@ def afficher_comparaison():
                 for page in lecteur.pages
             )
 
-           resultat = calculer_score(texte_cv)
+           resultat = calculer_score(texte_cv) 
 
             offre_info = offres_disponibles[
                 offres_disponibles["titre"] == offre_selectionnee
@@ -1614,35 +1614,20 @@ def ajouter_candidat():
 
             return
 
-        try:
-            lecteur = PdfReader(
-                io.BytesIO(cv.getvalue())
-            )
+       try:
+            chemin.relative_to(BASE_DIR.resolve())
+
+            if not chemin.is_file():
+                continue
+
+            lecteur = PdfReader(str(chemin))
 
             texte_cv = "\n".join(
                 page.extract_text() or ""
                 for page in lecteur.pages
             )
 
-            if not texte_cv.strip():
-                st.error(
-                    "Impossible d'extraire du texte de ce CV."
-                )
-                return
-
-            DOSSIER_CV.mkdir(
-                parents=True,
-                exist_ok=True
-            )
-
-            nom_fichier = f"{uuid.uuid4().hex}.pdf"
-            chemin_cv = DOSSIER_CV / nom_fichier
-
-            chemin_cv.write_bytes(
-                cv.getvalue()
-            )
-
-            resultat = calculer_score(texte_cv)
+           resultat = calculer_score(texte_cv) 
 
             offre_info = offres_disponibles[
                 offres_disponibles["titre"] == offre_selectionnee
@@ -1666,7 +1651,59 @@ def ajouter_candidat():
                 competences_requises
             )
 
-            nouvelle = pd.DataFrame([{
+            ligne = {
+                "Candidate": candidat["nom"]
+            }
+
+            for critere, detail in resultat["détails"].items():
+
+                ligne[critere] = (
+                    f"{detail['score']}/{detail['maximum']}"
+                )
+
+            details_comparaison.append(ligne)
+
+        except Exception:
+            continue
+
+    if details_comparaison:
+
+        st.dataframe(
+            pd.DataFrame(details_comparaison),
+            hide_index=True,
+            use_container_width=True
+        )
+
+    else:
+
+        st.warning("No CV details available for comparison.")
+
+    st.markdown("---")
+
+    st.subheader("📊 Comparative Analysis")
+
+    colonnes = [
+        "nom", "email", "score", "statut", "decision"
+    ]
+
+    st.dataframe(
+        comparaison[colonnes].rename(columns={
+            "nom": "Candidate",
+            "email": "Email",
+            "score": "Matching Score",
+            "statut": "Status",
+            "decision": "Recruitment Decision"
+        }),
+        hide_index=True,
+        use_container_width=True
+    )
+
+    meilleur = comparaison.iloc[0]
+
+    st.success(
+        f"🏆 Highest Matching Score: {meilleur['nom']} "
+        f"({meilleur['score']}/100)"
+    )
 
                 "offre": offre_selectionnee,
 
