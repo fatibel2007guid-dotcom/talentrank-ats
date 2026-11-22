@@ -352,19 +352,84 @@ def afficher_entretiens():
 
     st.markdown("---")
 
-    st.subheader("📋 Interview History")
+   st.subheader("📋 Interview History")
 
-    if not entretiens.empty:
+if not entretiens.empty:
 
-        st.dataframe(
-            entretiens,
-            hide_index=True,
-            use_container_width=True
+    st.dataframe(
+        entretiens,
+        hide_index=True,
+        use_container_width=True
+    )
+
+    st.markdown("---")
+
+   st.subheader("📋 Interview History")
+
+if not entretiens.empty:
+
+    st.dataframe(
+        entretiens,
+        hide_index=True,
+        use_container_width=True
+    )
+
+    st.markdown("---")
+    st.subheader("📝 Interview Evaluation")
+
+    index_entretien = st.selectbox(
+        "Select an Interview",
+        entretiens.index.tolist(),
+        format_func=lambda i: (
+            f"{entretiens.at[i, 'candidat']} — "
+            f"{entretiens.at[i, 'date']} "
+            f"{entretiens.at[i, 'heure']}"
+        )
+    )
+
+    entretien = entretiens.loc[index_entretien]
+
+    with st.form("form_feedback"):
+
+        feedback = st.text_area(
+            "Recruiter Feedback",
+            value=str(entretien["feedback"])
         )
 
-    else:
+        resultat = st.selectbox(
+            "Interview Result",
+            ["En attente", "Réussi", "Échoué"],
+            index=[
+                "En attente", "Réussi", "Échoué"
+            ].index(
+                entretien["resultat"]
+                if entretien["resultat"] in
+                ["En attente", "Réussi", "Échoué"]
+                else "En attente"
+            )
+        )
 
-        st.info("No interviews scheduled yet.")
+        sauvegarder = st.form_submit_button(
+            "Save Evaluation"
+        )
+
+    if sauvegarder:
+
+        entretiens.at[
+            index_entretien, "feedback"
+        ] = feedback
+
+        entretiens.at[
+            index_entretien, "resultat"
+        ] = resultat
+
+        enregistrer_entretiens(entretiens)
+
+        st.success("Interview evaluation saved!")
+        st.rerun()
+
+else:
+    st.info("No interviews scheduled yet.")
 
 def afficher_offres():
 
@@ -648,7 +713,7 @@ with st.sidebar:
         "Candidates",
         "Add Candidate",
         "Job Offers",
-        "Candidate Comparison"
+        "Candidate Comparison",
         "Interview Management"
     ],
     label_visibility="collapsed"
