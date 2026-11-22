@@ -414,19 +414,21 @@ def afficher_entretiens():
 
             if resultat in ["Réussi", "Échoué"]:
 
-        candidats = charger_candidats()
+                candidats = charger_candidats()
 
-        nom_candidat = entretien["candidat"]
+                nom_candidat = entretien["candidat"]
 
-        masque = candidats["nom"] == nom_candidat
+                masque = candidats["nom"] == nom_candidat
 
-        if resultat == "Réussi":
-            candidats.loc[masque, "decision"] = "Accepté"
+                if resultat == "Réussi":
 
-        elif resultat == "Échoué":
-            candidats.loc[masque, "decision"] = "Refusé"
+                    candidats.loc[masque, "decision"] = "Accepté"
 
-        enregistrer_candidats(candidats)
+                elif resultat == "Échoué":
+
+                    candidats.loc[masque, "decision"] = "Refusé"
+
+                enregistrer_candidats(candidats)
 
             enregistrer_entretiens(entretiens)
 
