@@ -4,9 +4,11 @@ import base64
 import hashlib
 import hmac
 import io
+import re
 import secrets
 import subprocess
 import sys
+import unicodedata
 import uuid
 from datetime import date, datetime
 from pathlib import Path
@@ -69,15 +71,15 @@ COMPETENCES_DISPONIBLES = [
 ]
 
 PALETTE_DECISIONS = {
-    "À décider": "#94A3B8", "Présélectionné": "#2563EB",
+    "À décider": "#94A3B8", "Présélectionné": "#4F46E5",
     "Entretien": "#F59E0B", "Accepté": "#16A34A", "Refusé": "#DC2626",
 }
 PALETTE_STATUTS = {
     "À contacter": "#16A34A", "À étudier": "#F59E0B", "Refusé": "#DC2626",
 }
 COULEURS_GENERIQUES = [
-    "#2563EB", "#0EA5E9", "#16A34A", "#F59E0B",
-    "#8B5CF6", "#DC2626", "#14B8A6",
+    "#4F46E5", "#0EA5E9", "#16A34A", "#F59E0B",
+    "#EC4899", "#14B8A6", "#DC2626",
 ]
 
 # ==========================================
@@ -90,13 +92,13 @@ st.markdown("""
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 :root {
-    --primary: #1E3A8A;
-    --secondary: #2563EB;
-    --background: #F8FAFC;
+    --primary: #3730A3;
+    --secondary: #4F46E5;
+    --background: #F5F6FC;
     --surface: #FFFFFF;
-    --text: #0F172A;
-    --muted: #64748B;
-    --border: #E2E8F0;
+    --text: #1E1B4B;
+    --muted: #6B7280;
+    --border: #E4E5F2;
 }
 
 html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
@@ -109,10 +111,10 @@ h1 { color: var(--primary) !important; font-size: 2rem !important; font-weight: 
 h2, h3 { color: var(--primary) !important; font-weight: 700 !important; }
 p, label { color: var(--text); }
 
-/* SIDEBAR : claire, titre remonte */
+/* SIDEBAR : indigo fonce */
 section[data-testid="stSidebar"] {
-    background: #FFFFFF;
-    border-right: 1px solid var(--border);
+    background: linear-gradient(180deg, #2B2670 0%, #231F5C 100%);
+    border-right: none;
 }
 section[data-testid="stSidebar"] [data-testid="stSidebarHeader"] {
     min-height: 0 !important;
@@ -122,14 +124,19 @@ section[data-testid="stSidebar"] [data-testid="stSidebarHeader"] {
 section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"] {
     padding-top: 0.25rem !important;
 }
-section[data-testid="stSidebar"] hr { border-color: var(--border); margin: 1rem 0; }
+section[data-testid="stSidebar"] [data-testid="stSidebarCollapseButton"] button,
+section[data-testid="stSidebar"] [data-testid="stSidebarCollapseButton"] svg {
+    color: #FFFFFF !important;
+}
+section[data-testid="stSidebar"] hr { border-color: rgba(255,255,255,0.15); margin: 1rem 0; }
+section[data-testid="stSidebar"] [data-testid="stCaptionContainer"] { color: #C7C4F0 !important; }
 
 /* NAVIGATION : boutons simples, sans puces */
 section[data-testid="stSidebar"] .stButton button {
     width: 100%;
     justify-content: flex-start;
     text-align: left;
-    padding: 10px 14px;
+    padding: 11px 14px;
     border-radius: 10px;
     font-weight: 500;
     box-shadow: none;
@@ -138,19 +145,18 @@ section[data-testid="stSidebar"] .stButton button[kind="secondary"],
 section[data-testid="stSidebar"] .stButton button[data-testid="stBaseButton-secondary"] {
     background: transparent;
     border: none;
-    color: var(--text);
 }
 section[data-testid="stSidebar"] .stButton button[kind="secondary"] p,
 section[data-testid="stSidebar"] .stButton button[data-testid="stBaseButton-secondary"] p {
-    color: var(--text) !important;
+    color: #E0E0FF !important;
 }
 section[data-testid="stSidebar"] .stButton button[kind="secondary"]:hover,
 section[data-testid="stSidebar"] .stButton button[data-testid="stBaseButton-secondary"]:hover {
-    background: #EFF6FF;
+    background: rgba(255,255,255,0.10);
 }
 section[data-testid="stSidebar"] .stButton button[kind="primary"],
 section[data-testid="stSidebar"] .stButton button[data-testid="stBaseButton-primary"] {
-    background: var(--secondary);
+    background: #5B52E0;
     border: none;
 }
 
@@ -177,7 +183,7 @@ div[data-testid="stMetricValue"] { color: var(--primary); font-weight: 800; }
     color: #FFFFFF !important;
 }
 .stButton button:hover, .stFormSubmitButton button:hover, .stDownloadButton button:hover {
-    background: #1D4ED8;
+    background: #4338CA;
     color: #FFFFFF;
     border: none;
 }
@@ -199,7 +205,7 @@ div[data-testid="stAlert"] { border-radius: 10px; }
 LOGO_SVG = (
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">'
     '<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">'
-    '<stop offset="0" stop-color="#1E3A8A"/><stop offset="1" stop-color="#2563EB"/>'
+    '<stop offset="0" stop-color="#3730A3"/><stop offset="1" stop-color="#7C3AED"/>'
     '</linearGradient></defs>'
     '<rect width="48" height="48" rx="12" fill="url(#g)"/>'
     '<rect x="11" y="29" width="6" height="9" rx="1.5" fill="#fff" fill-opacity="0.55"/>'
@@ -215,8 +221,8 @@ LOGO_HTML = (
     '<div style="display:flex;align-items:center;gap:12px;padding:2px 0 14px 0;">'
     f'<img src="data:image/svg+xml;base64,{LOGO_B64}" width="42" height="42" alt="TalentRank">'
     '<div>'
-    '<div style="font-size:22px;font-weight:800;color:#1E3A8A;line-height:1.1;letter-spacing:-0.5px;">'
-    'Talent<span style="color:#2563EB;">Rank</span></div>'
+    '<div style="font-size:22px;font-weight:800;color:#312E81;line-height:1.1;letter-spacing:-0.5px;">'
+    'Talent<span style="color:#4F46E5;">Rank</span></div>'
     '<div style="font-size:12px;color:#64748B;margin-top:2px;">Smart recruitment platform</div>'
     '</div></div>'
 )
@@ -760,6 +766,318 @@ def afficher_carrieres():
                 st.error(erreur)
             else:
                 st.success("Merci ! Votre candidature a bien été envoyée.")
+
+
+# ==========================================
+# 3D. CV SCANNER
+# ==========================================
+
+LOGO_HTML_SIDEBAR = (
+    LOGO_HTML.replace("color:#312E81", "color:#FFFFFF")
+    .replace("color:#4F46E5", "color:#A5B4FC")
+    .replace("color:#64748B", "color:#C7C4F0")
+)
+
+COMPETENCES_SCAN = COMPETENCES_DISPONIBLES + [
+    "Word", "PowerPoint", "Python", "SQL", "Power BI", "Canva",
+    "SEO", "Photoshop", "Réseaux sociaux",
+]
+
+LANGUES_SCAN = {
+    "Français": r"francais|french",
+    "Anglais": r"anglais|english",
+    "Arabe": r"arabe|arabic",
+    "Espagnol": r"espagnol|spanish",
+    "Allemand": r"allemand|german",
+    "Amazigh": r"amazigh|tamazight",
+}
+
+ENTETES_CV = {
+    "formation": ("formation", "formations", "diplomes", "education",
+                  "parcours academique"),
+    "experience": ("experience", "experiences", "experience professionnelle",
+                   "experiences professionnelles", "stages",
+                   "parcours professionnel"),
+    "competences": ("competences", "competences techniques", "competences cles",
+                    "competences informatiques", "skills", "technologies"),
+    "langues": ("langues", "langue", "languages"),
+    "autres": ("contact", "profil", "resume", "centres d'interet", "loisirs",
+               "interets", "certifications", "projets", "coordonnees",
+               "informations personnelles", "objectif"),
+}
+
+
+def normaliser_texte(texte):
+    texte = unicodedata.normalize("NFD", texte.lower())
+    return "".join(c for c in texte if unicodedata.category(c) != "Mn")
+
+
+def lire_texte_fichier(fichier):
+    """Extrait le texte d'un CV (PDF, DOCX ou photo)."""
+    nom = fichier.name.lower()
+    contenu = fichier.getvalue()
+
+    if nom.endswith(".pdf"):
+        return texte_pdf(contenu)
+
+    if nom.endswith(".docx"):
+        try:
+            from docx import Document
+        except ImportError:
+            raise RuntimeError(
+                "Pour lire les fichiers DOCX, ajoutez python-docx à requirements.txt."
+            )
+        document = Document(io.BytesIO(contenu))
+        lignes = [p.text for p in document.paragraphs]
+        for tableau in document.tables:
+            for rangee in tableau.rows:
+                lignes.extend(cellule.text for cellule in rangee.cells)
+        return "\n".join(lignes)
+
+    if nom.endswith((".jpg", ".jpeg", ".png")):
+        try:
+            import pytesseract
+            from PIL import Image
+        except ImportError:
+            raise RuntimeError(
+                "Pour lire les photos de CV, ajoutez pytesseract et pillow à "
+                "requirements.txt, et tesseract-ocr à packages.txt."
+            )
+        image = Image.open(io.BytesIO(contenu))
+        try:
+            return pytesseract.image_to_string(image, lang="fra+eng")
+        except Exception:
+            return pytesseract.image_to_string(image)
+
+    raise RuntimeError("Format non supporté.")
+
+
+def decouper_sections(lignes):
+    sections = {nom: [] for nom in ENTETES_CV}
+    courante = None
+    for ligne in lignes:
+        cle = normaliser_texte(ligne).strip(" :-•").rstrip(":")
+        trouve = next((n for n, v in ENTETES_CV.items() if cle in v), None)
+        if trouve:
+            courante = trouve
+        elif courante:
+            sections[courante].append(ligne)
+    return sections
+
+
+def extraire_infos_cv(texte):
+    lignes = [l.strip() for l in texte.splitlines() if l.strip()]
+    sections = decouper_sections(lignes)
+    texte_norm = normaliser_texte(texte)
+
+    email = re.search(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+", texte)
+    telephone = re.search(r"(?:\+212|00212|0)[\s.-]?[5-7](?:[\s.-]?\d{2}){4}", texte)
+
+    interdits = {mot for v in ENTETES_CV.values() for mot in v}
+    interdits |= {"cv", "curriculum vitae"}
+
+    nom = ""
+    for ligne in lignes[:10]:
+        mots = ligne.split()
+        if (
+            "@" in ligne
+            or re.search(r"\d", ligne)
+            or not 2 <= len(mots) <= 4
+            or len(ligne) > 40
+            or normaliser_texte(ligne) in interdits
+        ):
+            continue
+        nom = ligne.title() if ligne.isupper() else ligne
+        break
+
+    motif_diplome = (
+        r"bac\s*\+\s*\d|licence|master|dut\b|bts\b|ingenieur|doctorat|"
+        r"diplome|ofppt|\bests?\b|estc|technicien"
+    )
+    formation = sections["formation"][:2] or [
+        l for l in lignes if re.search(motif_diplome, normaliser_texte(l))
+    ][:2]
+    experience = sections["experience"][:2] or [
+        l for l in lignes
+        if re.search(r"\bstage\b|\bexperience\b", normaliser_texte(l))
+    ][:2]
+
+    competences = [
+        c for c in COMPETENCES_SCAN
+        if re.search(
+            r"(?<!\w)" + re.escape(normaliser_texte(c)) + r"(?!\w)", texte_norm
+        )
+    ]
+    langues = [n for n, m in LANGUES_SCAN.items() if re.search(m, texte_norm)]
+
+    return {
+        "nom": nom,
+        "email": email.group(0) if email else "",
+        "telephone": re.sub(r"\s+", " ", telephone.group(0)).strip() if telephone else "",
+        "formation": formation,
+        "experience": experience,
+        "competences": competences,
+        "langues": langues,
+    }
+
+
+def score_compatibilite(texte, offre):
+    """Mélange le score général (30%) et le matching avec l'offre (70%)."""
+    general = calculer_score(texte)["score"]
+    requises = competences_offre(offre) if offre else []
+    if requises:
+        matching = calculer_matching_offre(texte, requises)
+        return round(0.7 * matching["score"] + 0.3 * general), matching
+    return round(general), None
+
+
+def message_score(score):
+    if score >= 80:
+        return "Profil très intéressant ✅", "Ce candidat correspond parfaitement aux exigences du poste."
+    if score >= 60:
+        return "Profil intéressant", "Ce candidat répond à une bonne partie des exigences."
+    if score >= 40:
+        return "Profil à étudier", "Ce candidat répond partiellement aux exigences."
+    return "Profil peu adapté", "Ce candidat répond peu aux exigences du poste."
+
+
+def anneau_score(valeur):
+    valeur = max(0, min(100, int(valeur)))
+    couleur = "#16A34A" if valeur >= 70 else "#F59E0B" if valeur >= 40 else "#DC2626"
+    circonference = 2 * 3.14159 * 60
+    decalage = circonference * (1 - valeur / 100)
+    svg = (
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160">'
+        '<circle cx="80" cy="80" r="60" fill="none" stroke="#E5E7EB" stroke-width="14"/>'
+        f'<circle cx="80" cy="80" r="60" fill="none" stroke="{couleur}" '
+        'stroke-width="14" stroke-linecap="round" '
+        f'stroke-dasharray="{circonference:.1f}" stroke-dashoffset="{decalage:.1f}" '
+        'transform="rotate(-90 80 80)"/>'
+        '<text x="80" y="80" text-anchor="middle" dominant-baseline="central" '
+        'font-family="Arial, sans-serif" font-size="34" font-weight="800" '
+        f'fill="#312E81">{valeur}%</text></svg>'
+    )
+    b64 = base64.b64encode(svg.encode("utf-8")).decode("utf-8")
+    return f'<img src="data:image/svg+xml;base64,{b64}" width="170" height="170">'
+
+
+def afficher_scanner():
+    st.title("CV Scanner")
+    st.markdown(
+        "Importez un CV (PDF, DOCX ou photo) et laissez TalentRank "
+        "extraire les informations automatiquement."
+    )
+    st.markdown("---")
+
+    ouvertes = offres_ouvertes()
+    choix = st.selectbox(
+        "Comparer avec l'offre",
+        ["Score général (sans offre)"] + ouvertes["titre"].tolist(),
+    )
+    offre = "" if choix.startswith("Score général") else choix
+
+    fichier = st.file_uploader(
+        "Glissez votre CV ici ou cliquez pour importer",
+        type=["pdf", "docx", "jpg", "jpeg", "png"],
+        help="Formats acceptés : PDF, DOCX, JPG, PNG",
+    )
+
+    if fichier is None:
+        st.info("Importez un CV pour lancer l'analyse.")
+        return
+
+    try:
+        with st.spinner("Analyse en cours..."):
+            texte = lire_texte_fichier(fichier)
+    except RuntimeError as erreur:
+        st.error(str(erreur))
+        return
+    except Exception:
+        st.error("Impossible de lire ce fichier.")
+        return
+
+    if not texte.strip():
+        st.warning("Aucun texte détecté. Essayez un CV plus net ou en PDF texte.")
+        return
+
+    infos = extraire_infos_cv(texte)
+    score, matching = score_compatibilite(texte, offre)
+    titre_message, texte_message = message_score(score)
+
+    gauche, droite = st.columns([3, 2])
+
+    with gauche:
+        with st.container(border=True):
+            t1, t2 = st.columns([3, 2])
+            t1.subheader("✨ Résultat de l'analyse")
+            t2.success("CV bien analysé !")
+
+            lignes_infos = [
+                ("👤", "Nom & Prénom", infos["nom"]),
+                ("✉️", "Email", infos["email"]),
+                ("📞", "Téléphone", infos["telephone"]),
+                ("🎓", "Formation", " · ".join(infos["formation"])),
+                ("💼", "Expérience", " · ".join(infos["experience"])),
+                ("🧩", "Compétences", ", ".join(infos["competences"])),
+                ("🌐", "Langues", ", ".join(infos["langues"])),
+            ]
+            for icone, libelle, valeur in lignes_infos:
+                c1, c2 = st.columns([1, 2])
+                c1.write(f"{icone} **{libelle}**")
+                c2.write(valeur or "—")
+
+    with droite:
+        with st.container(border=True):
+            st.markdown("#### 📊 Score de compatibilité")
+            a, b = st.columns(2)
+            a.markdown(anneau_score(score), unsafe_allow_html=True)
+            b.markdown(f"**{titre_message}**")
+            b.caption(texte_message)
+            if matching and matching["competences_manquantes"]:
+                st.caption(
+                    "Compétences manquantes : "
+                    + ", ".join(matching["competences_manquantes"])
+                )
+
+        with st.container(border=True):
+            st.markdown("#### 📝 Résumé du profil")
+            resume = [
+                (bool(infos["experience"]), "Expérience pertinente"),
+                (bool(infos["competences"]),
+                 "Compétences clés : " + (", ".join(infos["competences"][:3]) or "non détectées")),
+                (bool(infos["formation"]), "Niveau d'étude adapté"),
+                (bool(infos["langues"]),
+                 "Langues : " + (", ".join(infos["langues"]) or "non détectées")),
+            ]
+            for ok, ligne in resume:
+                st.markdown(("✅ " if ok else "⚠️ ") + ligne)
+
+    st.markdown("---")
+    st.subheader("➕ Ajouter aux candidats")
+
+    if not fichier.name.lower().endswith(".pdf"):
+        st.info("L'ajout direct nécessite un CV au format PDF. "
+                "Les autres formats servent à l'analyse seulement.")
+    elif not offre:
+        st.info("Choisissez une offre ci-dessus pour ajouter ce candidat.")
+    else:
+        with st.form("form_scan"):
+            nom = st.text_input("Full Name", value=infos["nom"],
+                                key=f"scan_nom_{fichier.name}")
+            email = st.text_input("Email", value=infos["email"],
+                                  key=f"scan_email_{fichier.name}")
+            ajouter = st.form_submit_button(
+                "Add to candidates", use_container_width=True
+            )
+
+        if ajouter:
+            erreur = creer_candidature(
+                nom, email, offre, fichier.getvalue(), "CV Scanner"
+            )
+            if erreur:
+                st.error(erreur)
+            else:
+                st.success(f"{nom} a été ajouté(e) aux candidats.")
 
 
 # ==========================================
@@ -1578,119 +1896,5 @@ def afficher_entretiens():
 
     if entretiens.empty:
         st.info("No interviews scheduled yet.")
-        return
-
-    st.dataframe(entretiens, hide_index=True, use_container_width=True)
-
-    st.markdown("---")
-    st.subheader("📝 Interview Evaluation")
-
-    indice = st.selectbox(
-        "Select an Interview",
-        entretiens.index.tolist(),
-        format_func=lambda i: (
-            f"{entretiens.at[i, 'candidat']} — "
-            f"{entretiens.at[i, 'date']} {entretiens.at[i, 'heure']}"
-        ),
-    )
-    entretien = entretiens.loc[indice]
-    actuel = entretien["resultat"] if entretien["resultat"] in RESULTATS else "En attente"
-
-    with st.form("form_feedback"):
-        feedback = st.text_area(
-            "Recruiter Feedback", value=str(entretien["feedback"])
-        )
-        resultat = st.selectbox(
-            "Interview Result", RESULTATS, index=RESULTATS.index(actuel)
-        )
-        sauvegarder = st.form_submit_button("Save Evaluation")
-
-    if sauvegarder:
-        entretiens.at[indice, "feedback"] = feedback
-        entretiens.at[indice, "resultat"] = resultat
-        enregistrer_entretiens(entretiens)
-
-        if resultat == "Réussi":
-            modifier_decision(entretien["candidate_id"], "Accepté")
-        elif resultat == "Échoué":
-            modifier_decision(entretien["candidate_id"], "Refusé")
-
-        st.success("Interview evaluation saved!")
-        st.rerun()
-
-
-# ==========================================
-# 11. SIDEBAR + INITIALISATION + NAVIGATION
-# ==========================================
-
-PAGES = {
-    "Dashboard": afficher_dashboard,
-    "Candidates": afficher_candidats,
-    "Add Candidate": ajouter_candidat,
-    "Job Offers": afficher_offres,
-    "Candidate Comparison": afficher_comparaison,
-    "Kanban Board": afficher_kanban,
-    "Interview Management": afficher_entretiens,
-    "My Account": afficher_compte,
-    "Users": afficher_utilisateurs,
-}
-
-DATA_DIR.mkdir(parents=True, exist_ok=True)
-
-# Page publique de candidature (sans connexion) : ?careers=1
-if st.query_params.get("careers"):
-    afficher_carrieres()
-    st.stop()
-
-# Acces protege : il faut etre connecte
-if utilisateur_courant() is None:
-    afficher_connexion()
-    st.stop()
-
-utilisateur = utilisateur_courant()
-pages_visibles = [p for p in PAGES if p != "Users" or est_admin()]
-
-if st.session_state.get("page") not in pages_visibles:
-    st.session_state["page"] = "Dashboard"
-
-with st.sidebar:
-    st.markdown(LOGO_HTML, unsafe_allow_html=True)
-
-    for nom_page in pages_visibles:
-        actif = st.session_state["page"] == nom_page
-        if st.button(
-            nom_page,
-            key=f"nav_{nom_page}",
-            use_container_width=True,
-            type="primary" if actif else "secondary",
-        ):
-            st.session_state["page"] = nom_page
-            st.rerun()
-
-    st.markdown("---")
-    st.caption(f"👤 {utilisateur['nom']} · {utilisateur['role']}")
-
-    if st.button("Log out", key="logout", use_container_width=True):
-        st.session_state.pop("user", None)
-        st.session_state.pop("page", None)
-        st.rerun()
-
-    if est_admin() and st.button(
-        "Reset Demo", key="reset_demo", use_container_width=True
-    ):
-        try:
-            lancer_seed_demo()
-            st.success("Demo réinitialisée.")
-            st.rerun()
-        except Exception as erreur:
-            st.error(str(erreur))
-
-if not FICHIER_CANDIDATS.exists() or FICHIER_CANDIDATS.stat().st_size == 0:
-    try:
-        lancer_seed_demo()
-    except Exception as erreur:
-        st.error(f"Erreur : {erreur}")
-        st.stop()
-
-PAGES[st.session_state["page"]]()
+      
 
