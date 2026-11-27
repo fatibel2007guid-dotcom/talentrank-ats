@@ -1,20 +1,19 @@
 """TalentRank ATS - Smart Recruitment Platform."""
 
-import io
 import base64
+import io
 import subprocess
 import sys
 import uuid
-
 from datetime import date
 from pathlib import Path
 
+import altair as alt
 import pandas as pd
 import streamlit as st
-
 from pypdf import PdfReader
-from scoring import calculer_score, calculer_matching_offre
 
+from scoring import calculer_matching_offre, calculer_score
 
 # ==========================================
 # 1. CONFIGURATION
@@ -24,46 +23,53 @@ st.set_page_config(
     page_title="TalentRank ATS",
     page_icon="🎯",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
 )
 
 BASE_DIR = Path(__file__).parent
-
-DOSSIER_CV = BASE_DIR / "data" / "cv"
-
-FICHIER_CANDIDATS = BASE_DIR / "data" / "candidats.csv"
-FICHIER_OFFRES = BASE_DIR / "data" / "offres.csv"
+DATA_DIR = BASE_DIR / "data"
+FICHIER_CANDIDATS = DATA_DIR / "candidats.csv"
+FICHIER_OFFRES = DATA_DIR / "offres.csv"
+FICHIER_ENTRETIENS = DATA_DIR / "entretiens.csv"
 
 COLONNES_CSV = [
-    "candidate_id",
-    "nom",
-    "email",
-    "score",
-    "matching_score",
-    "statut",
-    "date",
-    "decision",
-    "offre",
-    "cv_path"
+    "candidate_id", "nom", "email", "score", "matching_score",
+    "statut", "date", "decision", "offre", "cv_path",
+]
+COLONNES_OFFRES = [
+    "id", "titre", "departement", "contrat", "localisation",
+    "description", "competences_requises", "places", "date",
+]
+COLONNES_ENTRETIENS = [
+    "id", "candidate_id", "candidat", "offre", "date", "heure",
+    "type", "recruteur", "feedback", "resultat",
 ]
 
-STATUTS = [
-    "À contacter",
-    "À étudier",
-    "Refusé"
+STATUTS = ["À contacter", "À étudier", "Refusé"]
+DECISIONS = ["À décider", "Présélectionné", "Entretien", "Accepté", "Refusé"]
+RESULTATS = ["En attente", "Réussi", "Échoué"]
+
+COMPETENCES_DISPONIBLES = [
+    "Recrutement", "Sourcing", "Entretien", "ATS", "Excel",
+    "Rédaction d'annonces", "Paie", "Droit du travail", "GPEC",
+    "Marketing", "Communication", "Gestion de projet",
+    "Analyse de données", "Management", "Organisation",
 ]
 
-DECISIONS = [
-    "À décider",
-    "Présélectionné",
-    "Entretien",
-    "Accepté",
-    "Refusé"
+PALETTE_DECISIONS = {
+    "À décider": "#94A3B8", "Présélectionné": "#2563EB",
+    "Entretien": "#F59E0B", "Accepté": "#16A34A", "Refusé": "#DC2626",
+}
+PALETTE_STATUTS = {
+    "À contacter": "#16A34A", "À étudier": "#F59E0B", "Refusé": "#DC2626",
+}
+COULEURS_GENERIQUES = [
+    "#2563EB", "#0EA5E9", "#16A34A", "#F59E0B",
+    "#8B5CF6", "#DC2626", "#14B8A6",
 ]
-
 
 # ==========================================
-# 2. DESIGN CSS
+# 2. DESIGN (CSS + LOGO)
 # ==========================================
 
 st.markdown("""
@@ -72,268 +78,947 @@ st.markdown("""
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 :root {
-    --primary: #172554;
-    --secondary: #635BDB;
-    --accent: #8B5CF6;
-    --background: #F5F6FA;
+    --primary: #1E3A8A;
+    --secondary: #2563EB;
+    --background: #F8FAFC;
     --surface: #FFFFFF;
-    --text: #1E293B;
+    --text: #0F172A;
     --muted: #64748B;
-    --border: #E8EAF2;
+    --border: #E2E8F0;
 }
 
-html, body, [class*="css"] {
-    font-family: 'Inter', sans-serif;
-}
+html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
 
-.stApp {
-    background: var(--background);
-    color: var(--text);
-}
+.stApp { background: var(--background); color: var(--text); }
 
-.block-container {
-    padding: 2rem 2.5rem 3rem;
-    max-width: 1500px;
-}
+.block-container { padding: 2rem 2.5rem 3rem; max-width: 1500px; }
 
-h1 {
-    color: var(--primary) !important;
-    font-size: 2rem !important;
-    font-weight: 800 !important;
-    letter-spacing: -0.7px;
-}
+h1 { color: var(--primary) !important; font-size: 2rem !important; font-weight: 800 !important; letter-spacing: -0.7px; }
+h2, h3 { color: var(--primary) !important; font-weight: 700 !important; }
+p, label { color: var(--text); }
 
-h2, h3 {
-    color: var(--primary) !important;
-    font-weight: 700 !important;
-}
-
-p, label {
-    color: var(--text);
-}
-
-/* SIDEBAR */
-
+/* SIDEBAR : claire, titre remonte */
 section[data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #172554 0%, #252B64 100%);
+    background: #FFFFFF;
+    border-right: 1px solid var(--border);
 }
-
-section[data-testid="stSidebar"] * {
-    color: white;
+section[data-testid="stSidebar"] [data-testid="stSidebarHeader"] {
+    min-height: 0 !important;
+    height: auto !important;
+    padding: 0.4rem 1rem 0 1rem !important;
 }
-
-section[data-testid="stSidebar"] hr {
-    border-color: rgba(255,255,255,0.15);
+section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"] {
+    padding-top: 0.25rem !important;
 }
+section[data-testid="stSidebar"] hr { border-color: var(--border); margin: 1rem 0; }
 
+/* NAVIGATION : sans points, onglet actif en bleu */
+section[data-testid="stSidebar"] [data-testid="stRadio"] label > div:first-child {
+    display: none !important;
+}
 section[data-testid="stSidebar"] [data-testid="stRadio"] label {
-    padding: 9px 12px;
-    border-radius: 9px;
-    transition: background 0.2s ease;
+    width: 100%;
+    padding: 10px 14px;
+    margin-bottom: 2px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.15s ease;
 }
-
-section[data-testid="stSidebar"] [data-testid="stRadio"] label:hover {
-    background: rgba(255,255,255,0.12);
+section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
+    color: var(--text);
+    font-weight: 500;
 }
+section[data-testid="stSidebar"] [data-testid="stRadio"] label:hover { background: #EFF6FF; }
+section[data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked) { background: var(--secondary); }
+section[data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked) p { color: #FFFFFF; font-weight: 600; }
 
 /* METRIC CARDS */
-
 div[data-testid="stMetric"] {
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 20px;
-    box-shadow: 0 3px 12px rgba(23,37,84,0.04);
+    border-radius: 12px;
+    padding: 18px 20px;
 }
-
-div[data-testid="stMetricLabel"] {
-    color: var(--muted);
-    font-weight: 600;
-}
-
-div[data-testid="stMetricValue"] {
-    color: var(--primary);
-    font-weight: 800;
-}
+div[data-testid="stMetricLabel"] { color: var(--muted); font-weight: 600; }
+div[data-testid="stMetricValue"] { color: var(--primary); font-weight: 800; }
 
 /* BUTTONS */
-
-.stButton button,
-.stFormSubmitButton button {
+.stButton button, .stFormSubmitButton button, .stDownloadButton button {
     background: var(--secondary);
     color: white;
     border: none;
     border-radius: 9px;
     font-weight: 600;
     padding: 10px 18px;
-    transition: all 0.2s ease;
 }
-
-.stButton button:hover,
-.stFormSubmitButton button:hover {
-    background: #5148C8;
+.stButton button:hover, .stFormSubmitButton button:hover, .stDownloadButton button:hover {
+    background: #1D4ED8;
     color: white;
     border: none;
 }
 
 /* INPUTS */
+.stTextInput input, .stTextArea textarea, .stSelectbox div[data-baseweb="select"] > div { border-radius: 9px; }
 
-.stTextInput input,
-.stTextArea textarea,
-.stSelectbox div[data-baseweb="select"] > div {
-    border-radius: 9px;
-}
+/* CONTAINERS / TABLES / EXPANDERS */
+div[data-testid="stVerticalBlockBorderWrapper"] { background: white; border-radius: 12px; border-color: var(--border); }
+div[data-testid="stDataFrame"] { background: white; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+div[data-testid="stExpander"] { background: white; border: 1px solid var(--border); border-radius: 10px; }
 
-/* CONTAINERS */
-
-div[data-testid="stVerticalBlockBorderWrapper"] {
-    background: white;
-    border-radius: 12px;
-    border-color: var(--border);
-}
-
-/* TABLES */
-
-div[data-testid="stDataFrame"] {
-    background: white;
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    overflow: hidden;
-}
-
-/* EXPANDERS */
-
-div[data-testid="stExpander"] {
-    background: white;
-    border: 1px solid var(--border);
-    border-radius: 10px;
-}
-
-/* SEPARATORS */
-
-hr {
-    border-color: var(--border);
-    margin-top: 1.5rem;
-    margin-bottom: 1.5rem;
-}
-
-/* ALERTS */
-
-div[data-testid="stAlert"] {
-    border-radius: 10px;
-}
+hr { border-color: var(--border); margin-top: 1.5rem; margin-bottom: 1.5rem; }
+div[data-testid="stAlert"] { border-radius: 10px; }
 
 </style>
 """, unsafe_allow_html=True)
 
+LOGO_SVG = (
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">'
+    '<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">'
+    '<stop offset="0" stop-color="#1E3A8A"/><stop offset="1" stop-color="#2563EB"/>'
+    '</linearGradient></defs>'
+    '<rect width="48" height="48" rx="12" fill="url(#g)"/>'
+    '<rect x="11" y="29" width="6" height="9" rx="1.5" fill="#fff" fill-opacity="0.55"/>'
+    '<rect x="21" y="23" width="6" height="15" rx="1.5" fill="#fff" fill-opacity="0.8"/>'
+    '<rect x="31" y="17" width="6" height="21" rx="1.5" fill="#fff"/>'
+    '<circle cx="34" cy="10.5" r="3.5" fill="#38BDF8"/>'
+    '</svg>'
+)
+
+LOGO_B64 = base64.b64encode(LOGO_SVG.encode("utf-8")).decode("utf-8")
+
+LOGO_HTML = (
+    '<div style="display:flex;align-items:center;gap:12px;padding:2px 0 14px 0;">'
+    f'<img src="data:image/svg+xml;base64,{LOGO_B64}" width="42" height="42" alt="TalentRank">'
+    '<div>'
+    '<div style="font-size:22px;font-weight:800;color:#1E3A8A;line-height:1.1;letter-spacing:-0.5px;">'
+    'Talent<span style="color:#2563EB;">Rank</span></div>'
+    '<div style="font-size:12px;color:#64748B;margin-top:2px;">Smart recruitment platform</div>'
+    '</div></div>'
+)
 
 # ==========================================
-# 3. DATABASE FUNCTIONS
+# 3. DATA FUNCTIONS
 # ==========================================
+
 
 def lancer_seed_demo():
-
     resultat = subprocess.run(
         [sys.executable, str(BASE_DIR / "seed_demo.py")],
-        cwd=BASE_DIR,
-        capture_output=True,
-        text=True,
-        check=False
+        cwd=BASE_DIR, capture_output=True, text=True, check=False,
+    )
+    if resultat.returncode != 0:
+        raise RuntimeError(resultat.stderr or "Erreur d'initialisation")
+
+
+def lire_csv(chemin, colonnes):
+    if not chemin.exists() or chemin.stat().st_size == 0:
+        return pd.DataFrame(columns=colonnes)
+    tableau = pd.read_csv(
+        chemin, encoding="utf-8-sig", dtype=str, keep_default_na=False
+    )
+    for colonne in colonnes:
+        if colonne not in tableau.columns:
+            tableau[colonne] = ""
+    return tableau
+
+
+def ecrire_csv(tableau, chemin, colonnes):
+    chemin.parent.mkdir(parents=True, exist_ok=True)
+    tableau.reindex(columns=colonnes).to_csv(
+        chemin, index=False, encoding="utf-8-sig"
     )
 
-    if resultat.returncode != 0:
 
-        raise RuntimeError(
-            resultat.stderr or "Erreur d'initialisation"
-        )
+def enregistrer_candidats(tableau):
+    ecrire_csv(tableau, FICHIER_CANDIDATS, COLONNES_CSV)
+
+
+def enregistrer_offres(tableau):
+    ecrire_csv(tableau, FICHIER_OFFRES, COLONNES_OFFRES)
+
+
+def enregistrer_entretiens(tableau):
+    ecrire_csv(tableau, FICHIER_ENTRETIENS, COLONNES_ENTRETIENS)
 
 
 def charger_candidats():
+    tableau = lire_csv(FICHIER_CANDIDATS, COLONNES_CSV)
 
-    if not FICHIER_CANDIDATS.exists():
-        return pd.DataFrame(columns=COLONNES_CSV)
+    # Identifiant unique pour les anciens candidats
+    sans_id = tableau["candidate_id"].astype(str).str.strip() == ""
+    if sans_id.any():
+        tableau.loc[sans_id, "candidate_id"] = [
+            uuid.uuid4().hex[:8] for _ in range(int(sans_id.sum()))
+        ]
+        enregistrer_candidats(tableau)
 
-    tableau = pd.read_csv(
-        FICHIER_CANDIDATS,
-        encoding="utf-8-sig"
-    ).fillna("")
-
-    for colonne in COLONNES_CSV:
-        if colonne not in tableau.columns:
-            tableau[colonne] = ""
-
-    # Ajouter un identifiant unique aux anciens candidats
-    for index in tableau.index:
-
-        if not str(tableau.at[index, "candidate_id"]).strip():
-
-            tableau.at[index, "candidate_id"] = uuid.uuid4().hex[:8]
-
-    enregistrer_candidats(tableau)
-
+    tableau["score"] = pd.to_numeric(
+        tableau["score"], errors="coerce"
+    ).fillna(0)
+    tableau["decision"] = tableau["decision"].where(
+        tableau["decision"].isin(DECISIONS), "À décider"
+    )
     return tableau
 
-def enregistrer_candidats(tableau):
 
-    tableau.reindex(
-        columns=COLONNES_CSV
-    ).to_csv(
-        FICHIER_CANDIDATS,
-        index=False,
-        encoding="utf-8-sig"
-    )
+def charger_offres():
+    offres = lire_csv(FICHIER_OFFRES, COLONNES_OFFRES)
+    sans_doublon = offres.drop_duplicates(
+        subset=[c for c in COLONNES_OFFRES if c != "id"], keep="first"
+    ).reset_index(drop=True)
+    if len(sans_doublon) != len(offres):
+        enregistrer_offres(sans_doublon)
+    return sans_doublon
 
-
-# ==========================================
-# ==========================================
-# ==========================================
-# JOB OFFERS MANAGEMENT
-# ==========================================
-# ==========================================
-# INTERVIEWS MANAGEMENT FUNCTIONS
-# ==========================================
 
 def charger_entretiens():
+    return lire_csv(FICHIER_ENTRETIENS, COLONNES_ENTRETIENS)
 
-    if FICHIER_ENTRETIENS.exists():
 
-        return pd.read_csv(
-            FICHIER_ENTRETIENS,
-            keep_default_na=False
-        )
+def competences_offre(titre):
+    offres = charger_offres()
+    ligne = offres[offres["titre"] == titre]
+    if ligne.empty:
+        return []
+    return [
+        c.strip()
+        for c in str(ligne.iloc[0]["competences_requises"]).split(",")
+        if c.strip()
+    ]
 
-    return pd.DataFrame(
-        columns=COLONNES_ENTRETIENS
+
+def chemin_cv(cv_path):
+    relatif = str(cv_path).strip().replace("\\", "/")
+    if not relatif:
+        return None
+    chemin = (BASE_DIR / relatif).resolve()
+    try:
+        chemin.relative_to(BASE_DIR.resolve())
+    except ValueError:
+        return None
+    return chemin if chemin.is_file() else None
+
+
+def texte_pdf(contenu):
+    lecteur = PdfReader(io.BytesIO(contenu))
+    return "\n".join(page.extract_text() or "" for page in lecteur.pages)
+
+
+def modifier_decision(candidate_id, decision):
+    candidats = charger_candidats()
+    masque = candidats["candidate_id"].astype(str) == str(candidate_id)
+    candidats.loc[masque, "decision"] = decision
+    enregistrer_candidats(candidats)
+
+
+def graphique_cercle(serie, palette=None):
+    """Diagramme en cercle (donut) a partir d'un value_counts()."""
+    donnees = serie.reset_index()
+    donnees.columns = ["categorie", "total"]
+    donnees["categorie"] = donnees["categorie"].astype(str)
+    donnees = donnees[donnees["total"] > 0]
+
+    if donnees.empty:
+        st.info("Aucune donnée disponible.")
+        return
+
+    domaine = donnees["categorie"].tolist()
+    if palette:
+        couleurs = [palette.get(c, "#64748B") for c in domaine]
+    else:
+        couleurs = [
+            COULEURS_GENERIQUES[i % len(COULEURS_GENERIQUES)]
+            for i in range(len(domaine))
+        ]
+
+    base = alt.Chart(donnees).encode(
+        theta=alt.Theta("total:Q", stack=True),
+        color=alt.Color(
+            "categorie:N",
+            scale=alt.Scale(domain=domaine, range=couleurs),
+            legend=alt.Legend(title=None, orient="bottom", labelFontSize=12),
+        ),
+        tooltip=[
+            alt.Tooltip("categorie:N", title="Catégorie"),
+            alt.Tooltip("total:Q", title="Candidats"),
+        ],
+    )
+    arcs = base.mark_arc(innerRadius=55, outerRadius=100)
+    nombres = base.mark_text(
+        radius=78, size=14, fontWeight="bold", color="white"
+    ).encode(text=alt.Text("total:Q"))
+
+    st.altair_chart(
+        (arcs + nombres).properties(height=270).configure_view(strokeWidth=0),
+        use_container_width=True,
     )
 
 
-def enregistrer_entretiens(df):
-
-    FICHIER_ENTRETIENS.parent.mkdir(
-        parents=True,
-        exist_ok=True
-    )
-
-    df = df.reindex(
-        columns=COLONNES_ENTRETIENS
-    )
-
-    df.to_csv(
-        FICHIER_ENTRETIENS,
-        index=False
-    )
-    # ==========================================
-# INTERVIEW MANAGEMENT
+# ==========================================
+# 4. DASHBOARD
 # ==========================================
 
-def afficher_entretiens():
 
-    st.title("📅 Interview Management")
+def afficher_dashboard():
+    st.title("Dashboard")
+    st.markdown("Bienvenue dans votre espace de gestion du recrutement.")
+    st.markdown("---")
 
-    st.markdown(
-        "Planifiez et gérez les entretiens de recrutement."
+    tableau = charger_candidats()
+    total = len(tableau)
+    score_moyen = tableau["score"].mean() if total > 0 else 0
+
+    c1, c2, c3, c4, c5 = st.columns(5)
+    c1.metric("Total Candidates", total)
+    c2.metric("Average Score", f"{score_moyen:.1f}/100")
+    c3.metric("Shortlisted", int((tableau["decision"] == "Présélectionné").sum()))
+    c4.metric("Hired", int((tableau["decision"] == "Accepté").sum()))
+    c5.metric("Job Offers", len(charger_offres()))
+
+    st.markdown("---")
+    st.subheader("Recruitment Analytics")
+
+    if total == 0:
+        st.info("Aucune candidature disponible.")
+    else:
+        g1, g2, g3 = st.columns(3)
+        with g1:
+            st.markdown("**Candidates by Status**")
+            graphique_cercle(
+                tableau["statut"].replace("", "À étudier").value_counts(),
+                PALETTE_STATUTS,
+            )
+        with g2:
+            st.markdown("**Recruitment Decisions**")
+            graphique_cercle(
+                tableau["decision"].value_counts(), PALETTE_DECISIONS
+            )
+        with g3:
+            st.markdown("**Candidates by Job Offer**")
+            graphique_cercle(
+                tableau["offre"].replace("", "Non spécifiée").value_counts()
+            )
+
+    st.markdown("---")
+    gauche, droite = st.columns(2)
+
+    with gauche:
+        st.subheader("🏆 Top Candidates")
+        if total > 0:
+            st.dataframe(
+                tableau.sort_values("score", ascending=False)
+                .head(5)[["nom", "score", "decision"]]
+                .rename(columns={
+                    "nom": "Candidate", "score": "Matching Score",
+                    "decision": "Decision",
+                }),
+                hide_index=True, use_container_width=True,
+            )
+        else:
+            st.info("No candidates available.")
+
+    with droite:
+        st.subheader("📅 Upcoming Interviews")
+        entretiens = charger_entretiens()
+        a_venir = entretiens[
+            (entretiens["date"].astype(str) >= date.today().isoformat())
+            & (entretiens["resultat"] == "En attente")
+        ].sort_values(["date", "heure"]).head(5)
+        if not a_venir.empty:
+            st.dataframe(
+                a_venir[["candidat", "date", "heure", "type", "recruteur"]]
+                .rename(columns={
+                    "candidat": "Candidate", "date": "Date", "heure": "Time",
+                    "type": "Type", "recruteur": "Recruiter",
+                }),
+                hide_index=True, use_container_width=True,
+            )
+        else:
+            st.info("No upcoming interviews.")
+
+    st.markdown("---")
+    st.subheader("Recent Applications")
+    if total > 0:
+        st.dataframe(
+            tableau.sort_values("date", ascending=False)
+            .head(5)[["nom", "email", "score", "statut", "date"]]
+            .rename(columns={
+                "nom": "Candidate", "email": "Email", "score": "Score",
+                "statut": "Status", "date": "Application Date",
+            }),
+            hide_index=True, use_container_width=True,
+        )
+    else:
+        st.info("Aucune candidature enregistrée.")
+
+
+# ==========================================
+# 5. CANDIDATES
+# ==========================================
+
+
+def afficher_candidats():
+    st.title("Candidate Management")
+    st.markdown("Consultez et gérez les candidatures reçues.")
+    st.markdown("---")
+
+    tableau = charger_candidats()
+
+    if tableau.empty:
+        st.info("Aucun candidat enregistré.")
+        return
+
+    recherche = st.text_input(
+        "🔎 Rechercher un candidat", placeholder="Nom ou adresse e-mail..."
     )
 
+    f1, f2, f3 = st.columns(3)
+    filtre = f1.selectbox("Filtrer par statut", ["Tous"] + STATUTS)
+    liste_offres = sorted(o for o in tableau["offre"].astype(str).unique() if o)
+    filtre_offre = f2.selectbox("Filtrer par offre", ["Toutes"] + liste_offres)
+    score_min = f3.slider("Score minimum", 0, 100, 0)
+
+    affiches = tableau.copy()
+
+    if recherche:
+        affiches = affiches[
+            affiches["nom"].str.contains(recherche, case=False, na=False)
+            | affiches["email"].str.contains(recherche, case=False, na=False)
+        ]
+    if filtre != "Tous":
+        affiches = affiches[affiches["statut"] == filtre]
+    if filtre_offre != "Toutes":
+        affiches = affiches[affiches["offre"].astype(str) == filtre_offre]
+    affiches = affiches[affiches["score"] >= score_min].sort_values(
+        "score", ascending=False
+    )
+
+    if affiches.empty:
+        st.info("Aucun résultat trouvé.")
+        return
+
+    st.dataframe(
+        affiches[[
+            "nom", "email", "offre", "score", "matching_score",
+            "statut", "date", "decision",
+        ]].rename(columns={
+            "nom": "Candidate", "email": "Email", "offre": "Job Offer",
+            "score": "Score", "matching_score": "Job Matching",
+            "statut": "Status", "date": "Date",
+            "decision": "Recruiter Decision",
+        }),
+        hide_index=True, use_container_width=True,
+    )
+
+    st.download_button(
+        "⬇️ Export CSV",
+        data=affiches.drop(columns=["cv_path"], errors="ignore")
+        .to_csv(index=False).encode("utf-8-sig"),
+        file_name="candidats_talentrank.csv",
+        mime="text/csv",
+    )
+
+    st.markdown("---")
+    st.subheader("Candidate Profile")
+
+    fiches = affiches.set_index("candidate_id")
+    cid = st.selectbox(
+        "Sélectionner un candidat",
+        fiches.index.tolist(),
+        format_func=lambda i: f"{fiches.at[i, 'nom']} — {fiches.at[i, 'email']}",
+    )
+    candidat = fiches.loc[cid]
+
+    st.markdown(f"### {candidat['nom']}")
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Matching Score", f"{candidat['score']}/100")
+    m2.metric("Status", candidat["statut"])
+    m3.metric("Decision", candidat["decision"])
+    st.write(f"**Email:** {candidat['email']}")
+
+    st.markdown("---")
+    st.subheader("Application Information")
+    i1, i2 = st.columns(2)
+    i1.info(f"💼 **Job Offer:** {candidat['offre'] or 'Not specified'}")
+    i2.info(f"📅 **Application Date:** {candidat['date'] or 'Not specified'}")
+
+    # ---- CV
+    st.markdown("---")
+    st.subheader("Candidate Documents")
+
+    if not str(candidat["cv_path"]).strip():
+        st.info("Aucun CV enregistré pour ce candidat.")
+    else:
+        fichier = chemin_cv(candidat["cv_path"])
+        if fichier is None:
+            st.warning("CV non disponible.")
+        else:
+            contenu_pdf = fichier.read_bytes()
+
+            st.download_button(
+                "📄 Télécharger le CV",
+                data=contenu_pdf,
+                file_name=f"{candidat['nom']}_CV.pdf",
+                mime="application/pdf",
+                key=f"cv_{cid}",
+            )
+
+            st.markdown("### Aperçu du CV")
+            pdf_base64 = base64.b64encode(contenu_pdf).decode("utf-8")
+            st.markdown(
+                f'<iframe src="data:application/pdf;base64,{pdf_base64}" '
+                'width="100%" height="700" '
+                'style="border:1px solid #E2E8F0;border-radius:10px;"></iframe>',
+                unsafe_allow_html=True,
+            )
+
+            st.markdown("---")
+            st.subheader("🧠 Skills & Competencies Analysis")
+            texte_cv = texte_pdf(contenu_pdf)
+            analyse = calculer_score(texte_cv)
+
+            for critere, detail in analyse["détails"].items():
+                st.write(f"**{critere}** — {detail['score']}/{detail['maximum']}")
+                st.progress(min(max(detail["score"] / detail["maximum"], 0), 1))
+                st.caption(detail["détail"])
+
+            requises = competences_offre(candidat["offre"])
+            if requises:
+                st.markdown("---")
+                st.subheader("🎯 Job Matching")
+                matching = calculer_matching_offre(texte_cv, requises)
+                st.metric("Job Matching Score", f"{matching['score']}/100")
+                st.write(
+                    "**Skills Found:** "
+                    + (", ".join(matching["competences_trouvees"]) or "—")
+                )
+                st.write(
+                    "**Missing Skills:** "
+                    + (", ".join(matching["competences_manquantes"]) or "—")
+                )
+
+    # ---- Décision
+    st.markdown("---")
+    st.subheader("Recruitment Decision")
+
+    nouvelle = st.selectbox(
+        "Décision du recruteur",
+        DECISIONS,
+        index=DECISIONS.index(candidat["decision"]),
+        key=f"decision_{cid}",
+    )
+    if st.button("Save Decision", key=f"save_{cid}"):
+        modifier_decision(cid, nouvelle)
+        st.success("Décision enregistrée.")
+        st.rerun()
+
+    with st.expander("🗑️ Delete this candidate"):
+        confirme = st.checkbox("Je confirme la suppression", key=f"conf_{cid}")
+        if st.button("Delete candidate", key=f"del_{cid}", disabled=not confirme):
+            enregistrer_candidats(
+                tableau[tableau["candidate_id"].astype(str) != str(cid)]
+            )
+            st.success("Candidat supprimé.")
+            st.rerun()
+
+
+# ==========================================
+# 6. ADD CANDIDATE
+# ==========================================
+
+
+def ajouter_candidat():
+    st.title("Add New Candidate")
+    st.markdown("Enregistrez une nouvelle candidature dans TalentRank.")
+    st.markdown("---")
+
+    offres = charger_offres()
+
+    with st.form("formulaire_candidature"):
+        st.subheader("Personal Information")
+        nom = st.text_input("Full Name *")
+        email = st.text_input("Email Address *")
+
+        if not offres.empty:
+            offre_choisie = st.selectbox(
+                "Select Job Offer *", offres["titre"].tolist()
+            )
+        else:
+            offre_choisie = ""
+            st.warning("No job offers available. Create a Job Offer first.")
+
+        st.subheader("Documents")
+        cv = st.file_uploader("Upload CV (PDF) *", type=["pdf"])
+
+        envoyer = st.form_submit_button(
+            "Submit Application", use_container_width=True
+        )
+
+    if not envoyer:
+        return
+
+    erreurs = []
+    if not nom.strip():
+        erreurs.append("Le nom est obligatoire.")
+    if not email.strip() or "@" not in email:
+        erreurs.append("Veuillez saisir un e-mail valide.")
+    if cv is None:
+        erreurs.append("Veuillez joindre un CV.")
+    if not offre_choisie:
+        erreurs.append("Créez d'abord une offre d'emploi.")
+
+    existants = charger_candidats()
+    if email.strip() and not existants.empty:
+        deja = (
+            (existants["email"].astype(str).str.lower() == email.strip().lower())
+            & (existants["offre"].astype(str) == str(offre_choisie))
+        ).any()
+        if deja:
+            erreurs.append("Ce candidat a déjà postulé à cette offre.")
+
+    if erreurs:
+        for erreur in erreurs:
+            st.error(erreur)
+        return
+
+    try:
+        texte_cv = texte_pdf(cv.getvalue())
+        resultat = calculer_score(texte_cv)
+
+        dossier_cvs = DATA_DIR / "cvs"
+        dossier_cvs.mkdir(parents=True, exist_ok=True)
+        chemin = dossier_cvs / f"{uuid.uuid4().hex[:8]}.pdf"
+        chemin.write_bytes(cv.getvalue())
+
+        requises = competences_offre(offre_choisie)
+        matching = calculer_matching_offre(texte_cv, requises) if requises else None
+
+        nouvelle = pd.DataFrame([{
+            "candidate_id": uuid.uuid4().hex[:8],
+            "offre": offre_choisie,
+            "nom": nom.strip(),
+            "email": email.strip(),
+            "score": resultat["score"],
+            "matching_score": matching["score"] if matching else "",
+            "statut": resultat["statut"],
+            "date": date.today().isoformat(),
+            "decision": "À décider",
+            "cv_path": str(chemin.relative_to(BASE_DIR)),
+        }])
+
+        enregistrer_candidats(
+            pd.concat([lire_csv(FICHIER_CANDIDATS, COLONNES_CSV), nouvelle],
+                      ignore_index=True)
+        )
+
+        st.success(f"Candidature reçue pour {nom} !")
+
+        st.subheader("CV Analysis")
+        st.metric("General Score", f"{resultat['score']}/100")
+        st.write(f"**Status : {resultat['statut']}**")
+
+        if matching:
+            st.metric("Job Matching Score", f"{matching['score']}/100")
+            st.write("**Skills Found:**")
+            st.write(matching["competences_trouvees"])
+            st.write("**Missing Skills:**")
+            st.write(matching["competences_manquantes"])
+        else:
+            st.info("No required skills defined for this offer.")
+
+        lignes = [
+            {
+                "Critère": critere,
+                "Score": f"{d['score']} / {d['maximum']}",
+                "Détail": d["détail"],
+            }
+            for critere, d in resultat["détails"].items()
+        ]
+        st.subheader("Score Details")
+        st.dataframe(
+            pd.DataFrame(lignes), hide_index=True, use_container_width=True
+        )
+        st.caption(
+            "L'évaluation est indicative. "
+            "La décision finale appartient au recruteur."
+        )
+
+    except Exception as erreur:
+        st.error(f"Erreur lors du traitement du CV : {erreur}")
+
+
+# ==========================================
+# 7. JOB OFFERS
+# ==========================================
+
+
+def afficher_offres():
+    st.title("Job Offers Management")
+    st.markdown("Create and manage your recruitment offers.")
+    st.markdown("---")
+
+    st.subheader("➕ Create a New Job Offer")
+
+    with st.form("formulaire_offre"):
+        col1, col2 = st.columns(2)
+        with col1:
+            titre = st.text_input("Job Title *")
+            departement = st.selectbox(
+                "Department",
+                ["Human Resources", "Marketing", "Finance", "IT",
+                 "Management", "Sales"],
+            )
+            contrat = st.selectbox(
+                "Contract Type", ["CDI", "CDD", "Stage", "Freelance"]
+            )
+        with col2:
+            localisation = st.text_input("Location", placeholder="Casablanca")
+            places = st.number_input(
+                "Number of Positions", min_value=1, max_value=100, value=1
+            )
+
+        description = st.text_area(
+            "Job Description *", height=150,
+            placeholder="Describe the position and required skills...",
+        )
+        competences = st.multiselect(
+            "Required Skills *", COMPETENCES_DISPONIBLES
+        )
+        publier = st.form_submit_button(
+            "Publish Job Offer", use_container_width=True
+        )
+
+    if publier:
+        if not titre.strip() or not description.strip():
+            st.error("Job Title and Description are required.")
+        elif not competences:
+            st.error("Select at least one required skill.")
+        else:
+            offres = charger_offres()
+            nouvelle = pd.DataFrame([{
+                "id": uuid.uuid4().hex[:8],
+                "titre": titre.strip(),
+                "departement": departement,
+                "contrat": contrat,
+                "localisation": localisation.strip(),
+                "description": description.strip(),
+                "competences_requises": ", ".join(competences),
+                "places": places,
+                "date": date.today().isoformat(),
+            }])
+            enregistrer_offres(pd.concat([offres, nouvelle], ignore_index=True))
+            st.success("Job offer published successfully!")
+            st.rerun()
+
+    st.markdown("---")
+    st.subheader("📋 Published Job Offers")
+
+    offres = charger_offres()
+    candidats = charger_candidats()
+
+    if offres.empty:
+        st.info("No job offers published yet.")
+        return
+
+    st.metric("Total Job Offers", len(offres))
+
+    for _, offre in offres.iterrows():
+        postulants = candidats[candidats["offre"].astype(str) == str(offre["titre"])]
+        total = len(postulants)
+        score_moyen = postulants["score"].mean() if total > 0 else 0
+        presel = int((postulants["decision"] == "Présélectionné").sum())
+
+        with st.container(border=True):
+            st.markdown(f"### 💼 {offre['titre']}")
+
+            a, b, c = st.columns(3)
+            a.write(f"**Department:** {offre['departement']}")
+            b.write(f"**Contract:** {offre['contrat']}")
+            c.write(f"**Location:** {offre['localisation']}")
+
+            st.markdown("---")
+            k1, k2, k3, k4 = st.columns(4)
+            k1.metric("Total Applicants", total)
+            k2.metric("Average Score", f"{score_moyen:.1f}/100")
+            k3.metric("Shortlisted", presel)
+            k4.metric("Available Positions", offre["places"])
+
+            with st.expander("📄 View Job Description"):
+                st.write(offre["description"])
+                st.write(f"**Required Skills:** {offre['competences_requises']}")
+                st.caption(f"Published on: {offre['date']}")
+
+            with st.expander("👥 View Applicants"):
+                if total > 0:
+                    st.dataframe(
+                        postulants[["nom", "email", "score", "decision"]]
+                        .rename(columns={
+                            "nom": "Candidate", "email": "Email",
+                            "score": "Matching Score", "decision": "Decision",
+                        }),
+                        hide_index=True, use_container_width=True,
+                    )
+                else:
+                    st.info("No applicants for this offer yet.")
+
+            with st.expander("🗑️ Delete this offer"):
+                ok = st.checkbox(
+                    "Je confirme la suppression", key=f"conf_offre_{offre['id']}"
+                )
+                if st.button(
+                    "Delete offer", key=f"del_offre_{offre['id']}", disabled=not ok
+                ):
+                    enregistrer_offres(offres[offres["id"] != offre["id"]])
+                    st.rerun()
+
+
+# ==========================================
+# 8. CANDIDATE COMPARISON
+# ==========================================
+
+
+def afficher_comparaison():
+    st.title("⚖️ Candidate Comparison")
+    st.markdown("Comparez plusieurs candidats pour une même offre d'emploi.")
+
+    candidats = charger_candidats()
+    if candidats.empty:
+        st.warning("No candidates available.")
+        return
+
+    offres = [o for o in candidats["offre"].astype(str).unique() if o]
+    if not offres:
+        st.info("No Job Offers linked to candidates.")
+        return
+
+    offre_choisie = st.selectbox("Select Job Offer", offres)
+    candidats_offre = candidats[candidats["offre"] == offre_choisie].copy()
+
+    if len(candidats_offre) < 2:
+        st.warning("You need at least 2 candidates for comparison.")
+        return
+
+    candidats_offre["label"] = (
+        candidats_offre["nom"].astype(str) + " — "
+        + candidats_offre["email"].astype(str)
+    )
+
+    selection = st.multiselect(
+        "Select candidates to compare",
+        candidats_offre["label"].tolist(),
+        max_selections=3,
+    )
+    if len(selection) < 2:
+        st.info("Select at least 2 candidates.")
+        return
+
+    comparaison = candidats_offre[
+        candidats_offre["label"].isin(selection)
+    ].sort_values("score", ascending=False)
+
+    requises = competences_offre(offre_choisie)
+
+    st.markdown("---")
+    st.subheader("📊 Detailed Skills Comparison")
+
+    lignes = []
+    for _, candidat in comparaison.iterrows():
+        fichier = chemin_cv(candidat["cv_path"])
+        if fichier is None:
+            continue
+        try:
+            texte_cv = texte_pdf(fichier.read_bytes())
+            resultat = calculer_score(texte_cv)
+            ligne = {"Candidate": candidat["nom"]}
+            for critere, d in resultat["détails"].items():
+                ligne[critere] = f"{d['score']}/{d['maximum']}"
+            if requises:
+                matching = calculer_matching_offre(texte_cv, requises)
+                ligne["Job Matching"] = f"{matching['score']}%"
+                ligne["Missing Skills"] = (
+                    ", ".join(matching["competences_manquantes"]) or "—"
+                )
+            lignes.append(ligne)
+        except Exception:
+            continue
+
+    if lignes:
+        st.dataframe(
+            pd.DataFrame(lignes), hide_index=True, use_container_width=True
+        )
+    else:
+        st.warning("No CV details available for comparison.")
+
+    st.markdown("---")
+    st.subheader("📊 Comparative Analysis")
+    st.dataframe(
+        comparaison[["nom", "email", "score", "statut", "decision"]].rename(
+            columns={
+                "nom": "Candidate", "email": "Email",
+                "score": "Matching Score", "statut": "Status",
+                "decision": "Recruitment Decision",
+            }
+        ),
+        hide_index=True, use_container_width=True,
+    )
+
+    meilleur = comparaison.iloc[0]
+    st.success(
+        f"🏆 Highest Matching Score: {meilleur['nom']} ({meilleur['score']}/100)"
+    )
+
+
+# ==========================================
+# 9. KANBAN BOARD
+# ==========================================
+
+
+def afficher_kanban():
+    st.title("📋 Kanban Board")
+    st.markdown(
+        "Suivez l'évolution des candidatures "
+        "à travers les différentes étapes du recrutement."
+    )
+
+    candidats = charger_candidats()
+    if candidats.empty:
+        st.info("Aucun candidat disponible.")
+        return
+
+    colonnes = st.columns(len(DECISIONS))
+
+    for colonne, decision in zip(colonnes, DECISIONS):
+        with colonne:
+            st.subheader(decision)
+            selection = candidats[candidats["decision"] == decision]
+            st.caption(f"{len(selection)} candidat(s)")
+
+            for _, candidat in selection.iterrows():
+                cid = candidat["candidate_id"]
+                with st.container(border=True):
+                    st.write(f"**{candidat['nom']}**")
+                    st.caption(candidat["email"])
+                    st.write(f"Score : **{candidat['score']}/100**")
+
+                    nouvelle = st.selectbox(
+                        "Changer la décision",
+                        DECISIONS,
+                        index=DECISIONS.index(decision),
+                        key=f"kanban_{cid}",
+                    )
+                    if st.button("Mettre à jour", key=f"update_{cid}"):
+                        modifier_decision(cid, nouvelle)
+                        st.rerun()
+
+
+# ==========================================
+# 10. INTERVIEW MANAGEMENT
+# ==========================================
+
+
+def afficher_entretiens():
+    st.title("📅 Interview Management")
+    st.markdown("Planifiez et gérez les entretiens de recrutement.")
     st.markdown("---")
 
     candidats = charger_candidats()
@@ -342,1616 +1027,136 @@ def afficher_entretiens():
     st.subheader("📌 Schedule Interview")
 
     if candidats.empty:
-
         st.warning("No candidates available.")
         return
 
-    candidats = candidats.copy()
-
     candidats["label"] = (
-        candidats["nom"].astype(str)
-        + " — "
-        + candidats["email"].astype(str)
+        candidats["nom"].astype(str) + " — " + candidats["email"].astype(str)
     )
 
     with st.form("form_entretien"):
+        choix = st.selectbox("Select Candidate", candidats["label"].tolist())
+        ligne = candidats[candidats["label"] == choix].iloc[0]
+        st.info(f"Job Offer: {ligne['offre']}")
 
-        candidat_choisi = st.selectbox(
-            "Select Candidate",
-            candidats["label"].tolist()
-        )
-
-        ligne = candidats[
-            candidats["label"] == candidat_choisi
-        ].iloc[0]
-
-        offre = ligne.get("offre", "")
-
-        st.info(f"Job Offer: {offre}")
-
-        date_entretien = st.date_input(
-            "Interview Date",
-            min_value=date.today()
-        )
-
-        heure_entretien = st.time_input(
-            "Interview Time"
-        )
-
-        type_entretien = st.selectbox(
-            "Interview Type",
-            ["Online", "Présentiel"]
-        )
-
-        recruteur = st.text_input(
-            "Recruiter Name"
-        )
+        date_entretien = st.date_input("Interview Date", min_value=date.today())
+        heure_entretien = st.time_input("Interview Time")
+        type_entretien = st.selectbox("Interview Type", ["Online", "Présentiel"])
+        recruteur = st.text_input("Recruiter Name")
 
         envoyer = st.form_submit_button(
-            "📅 Schedule Interview",
-            use_container_width=True
+            "📅 Schedule Interview", use_container_width=True
         )
 
     if envoyer:
-
         if not recruteur.strip():
-
             st.error("Please enter the recruiter name.")
-
         else:
-
             nouvelle = pd.DataFrame([{
                 "id": uuid.uuid4().hex[:8],
                 "candidate_id": ligne["candidate_id"],
                 "candidat": ligne["nom"],
-                "offre": offre,
+                "offre": ligne["offre"],
                 "date": date_entretien.isoformat(),
                 "heure": heure_entretien.strftime("%H:%M"),
                 "type": type_entretien,
-                "recruteur": recruteur,
+                "recruteur": recruteur.strip(),
                 "feedback": "",
-                "resultat": "En attente"
-
+                "resultat": "En attente",
             }])
-
-            entretiens = pd.concat(
-                [entretiens, nouvelle],
-                ignore_index=True
+            enregistrer_entretiens(
+                pd.concat([entretiens, nouvelle], ignore_index=True)
             )
-
-            enregistrer_entretiens(entretiens)
-
+            if ligne["decision"] in ("À décider", "Présélectionné"):
+                modifier_decision(ligne["candidate_id"], "Entretien")
             st.success("Interview scheduled successfully! 🎉")
-
             st.rerun()
 
     st.markdown("---")
-
     st.subheader("📋 Interview History")
 
-    if not entretiens.empty:
-
-        st.dataframe(
-            entretiens,
-            hide_index=True,
-            use_container_width=True
-        )
-
-        st.markdown("---")
-
-        st.subheader("📝 Interview Evaluation")
-
-        index_entretien = st.selectbox(
-            "Select an Interview",
-            entretiens.index.tolist(),
-            format_func=lambda i: (
-                f"{entretiens.at[i, 'candidat']} — "
-                f"{entretiens.at[i, 'date']} "
-                f"{entretiens.at[i, 'heure']}"
-            )
-        )
-
-        entretien = entretiens.loc[index_entretien]
-
-        with st.form("form_feedback"):
-
-            feedback = st.text_area(
-                "Recruiter Feedback",
-                value=str(entretien["feedback"])
-            )
-
-            resultat = st.selectbox(
-                "Interview Result",
-                ["En attente", "Réussi", "Échoué"],
-                index=[
-                    "En attente", "Réussi", "Échoué"
-                ].index(
-                    entretien["resultat"]
-                    if entretien["resultat"] in
-                    ["En attente", "Réussi", "Échoué"]
-                    else "En attente"
-                )
-            )
-
-            sauvegarder = st.form_submit_button(
-                "Save Evaluation"
-            )
-
-        if sauvegarder:
-
-            entretiens.at[
-                index_entretien, "feedback"
-            ] = feedback
-
-            entretiens.at[
-                index_entretien, "resultat"
-            ] = resultat
-
-            if resultat in ["Réussi", "Échoué"]:
-
-                candidats = charger_candidats()
-
-                candidate_id = entretien["candidate_id"]
-
-                masque = (
-                    candidats["candidate_id"].astype(str)
-                    == str(candidate_id)
-                )
-
-                if resultat == "Réussi":
-
-                    candidats.loc[masque, "decision"] = "Accepté"
-
-                elif resultat == "Échoué":
-
-                    candidats.loc[masque, "decision"] = "Refusé"
-
-                enregistrer_candidats(candidats)
-
-            enregistrer_entretiens(entretiens)
-
-            st.success("Interview evaluation saved!")
-
-            st.rerun()
-    else:
-
+    if entretiens.empty:
         st.info("No interviews scheduled yet.")
-
-
-def afficher_offres():
-
-    st.title("Job Offers Management")
-
-    st.markdown(
-        "Create and manage your recruitment offers."
-    )
-
-    st.markdown("---")
-
-    # ==========================================
-    # CREATE A NEW JOB OFFER
-    # ==========================================
-
-    st.subheader("➕ Create a New Job Offer")
-
-    with st.form("formulaire_offre"):
-
-        col1, col2 = st.columns(2)
-
-        with col1:
-
-            titre = st.text_input("Job Title *")
-
-            departement = st.selectbox(
-                "Department",
-                [
-                    "Human Resources",
-                    "Marketing",
-                    "Finance",
-                    "IT",
-                    "Management",
-                    "Sales"
-                ]
-            )
-
-            contrat = st.selectbox(
-                "Contract Type",
-                ["CDI", "CDD", "Stage", "Freelance"]
-            )
-
-        with col2:
-
-            localisation = st.text_input(
-                "Location",
-                placeholder="Casablanca"
-            )
-
-            places = st.number_input(
-                "Number of Positions",
-                min_value=1,
-                max_value=100,
-                value=1
-            )
-
-        description = st.text_area(
-            "Job Description *",
-            height=150,
-            placeholder="Describe the position and required skills..."
-        )
-
-        competences_requises = st.multiselect(
-            "Required Skills *",
-            [
-                "Recrutement",
-                "Sourcing",
-                "Entretien",
-                "ATS",
-                "Excel",
-                "Rédaction d'annonces",
-                "Paie",
-                "Droit du travail",
-                "GPEC",
-                "Marketing",
-                "Communication",
-                "Gestion de projet",
-                "Analyse de données",
-                "Management",
-                "Organisation"
-            ]
-        )
-
-        publier = st.form_submit_button(
-            "Publish Job Offer",
-            use_container_width=True
-        )
-
-    if publier:
-
-        if not titre.strip() or not description.strip():
-
-            st.error("Job Title and Description are required.")
-
-        else:
-
-            offres = charger_offres()
-
-            nouvelle_offre = pd.DataFrame([{
-
-                "id": uuid.uuid4().hex[:8],
-                "titre": titre.strip(),
-                "departement": departement,
-                "contrat": contrat,
-                "localisation": localisation.strip(),
-                "description": description.strip(),
-                "competences_requises": ", ".join(competences_requises),
-                "places": places,
-                "date": date.today().isoformat()
-
-            }])
-
-            offres = pd.concat(
-                [offres, nouvelle_offre],
-                ignore_index=True
-            )
-
-            enregistrer_offres(offres)
-
-            st.success("Job offer published successfully!")
-
-            st.rerun()
-
-    # ==========================================
-    # PUBLISHED JOB OFFERS
-    # ==========================================
-
-    st.markdown("---")
-
-    st.subheader("📋 Published Job Offers")
-
-    offres = charger_offres()
-    candidats = charger_candidats()
-
-    if offres.empty:
-
-        st.info("No job offers published yet.")
         return
 
-    st.metric("Total Job Offers", len(offres))
-
-    for _, offre in offres.iterrows():
-
-        candidats_offre = candidats[
-            candidats["offre"].astype(str) == str(offre["titre"])
-        ]
-
-        total_candidats = len(candidats_offre)
-
-        score_moyen = (
-            pd.to_numeric(
-                candidats_offre["score"],
-                errors="coerce"
-            ).mean()
-            if total_candidats > 0 else 0
-        )
-
-        presel = len(
-            candidats_offre[
-                candidats_offre["decision"] == "Présélectionné"
-            ]
-        )
-
-        with st.container(border=True):
-
-            st.markdown(f"### 💼 {offre['titre']}")
-
-            col1, col2, col3 = st.columns(3)
-
-            col1.write(f"**Department:** {offre['departement']}")
-
-            col2.write(f"**Contract:** {offre['contrat']}")
-
-            col3.write(f"**Location:** {offre['localisation']}")
-
-            st.markdown("---")
-
-            c1, c2, c3, c4 = st.columns(4)
-
-            c1.metric("Total Applicants", total_candidats)
-
-            c2.metric(
-                "Average Score",
-                f"{score_moyen:.1f}/100"
-            )
-
-            c3.metric("Shortlisted", presel)
-
-            c4.metric("Available Positions", offre["places"])
-
-            with st.expander("📄 View Job Description"):
-
-                st.write(offre["description"])
-
-                st.write(
-                    f"**Required Skills:** "
-                    f"{offre['competences_requises']}"
-                )
-
-                st.caption(
-                    f"Published on: {offre['date']}"
-                )
-
-            with st.expander("👥 View Applicants"):
-
-                if total_candidats > 0:
-
-                    st.dataframe(
-                        candidats_offre[
-                            ["nom", "email", "score", "decision"]
-                        ].rename(columns={
-                            "nom": "Candidate",
-                            "email": "Email",
-                            "score": "Matching Score",
-                            "decision": "Decision"
-                        }),
-                        hide_index=True,
-                        use_container_width=True
-                    )
-
-                else:
-
-                    st.info("No applicants for this offer yet.")
-                # ==========================================
-# JOB OFFERS DATABASE
-# ==========================================
-
-COLONNES_OFFRES = [
-    "id",
-    "titre",
-    "departement",
-    "contrat",
-    "localisation",
-    "description",
-    "competences_requises",
-    "places",
-    "date"
-]
-# ==========================================
-# INTERVIEWS DATABASE
-# ==========================================
-
-FICHIER_ENTRETIENS = BASE_DIR / "data" / "entretiens.csv"
-
-COLONNES_ENTRETIENS = [
-    "id",
-    "candidate_id",
-    "candidat",
-    "offre",
-    "date",
-    "heure",
-    "type",
-    "recruteur",
-    "feedback",
-    "resultat"
-]
-
-
-def charger_offres():
-
-    if not FICHIER_OFFRES.exists():
-
-        return pd.DataFrame(columns=COLONNES_OFFRES)
-
-    offres = pd.read_csv(
-        FICHIER_OFFRES,
-        encoding="utf-8-sig"
-    ).fillna("")
-
-    for colonne in COLONNES_OFFRES:
-
-        if colonne not in offres.columns:
-
-            offres[colonne] = ""
-
-    # Supprimer les offres exactement identiques
-    colonnes_comparaison = [
-        colonne for colonne in COLONNES_OFFRES
-        if colonne != "id"
-    ]
-
-    offres = offres.drop_duplicates(
-        subset=colonnes_comparaison,
-        keep="first"
-    ).reset_index(drop=True)
-
-    enregistrer_offres(offres)
-
-    return offres
-
-
-def enregistrer_offres(offres):
-
-    offres.reindex(
-        columns=COLONNES_OFFRES
-    ).to_csv(
-        FICHIER_OFFRES,
-        index=False,
-        encoding="utf-8-sig"
-    )
-
-# ==========================================
-# KANBAN BOARD
-# ==========================================
-
-def afficher_kanban():
-
-    st.title("📋 Kanban Board")
-
-    st.markdown(
-        "Suivez l'évolution des candidatures "
-        "à travers les différentes étapes du recrutement."
-    )
-
-    candidats = charger_candidats()
-
-    if candidats.empty:
-        st.info("Aucun candidat disponible.")
-        return
-
-    candidats["decision"] = (
-        candidats["decision"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-    )
-
-    candidats.loc[
-        ~candidats["decision"].isin(DECISIONS),
-        "decision"
-    ] = "À décider"
-
-    colonnes = st.columns(5)
-
-    for i, decision in enumerate(DECISIONS):
-
-        with colonnes[i]:
-
-            st.subheader(decision)
-
-            selection = candidats[
-                candidats["decision"] == decision
-            ]
-
-            st.caption(f"{len(selection)} candidat(s)")
-
-            for index, candidat in selection.iterrows():
-
-                with st.container(border=True):
-
-                    st.write(f"**{candidat['nom']}**")
-                    st.caption(candidat["email"])
-
-                    st.metric(
-                        "Score",
-                        f"{candidat['score']}/100"
-                    )
-
-                    nouvelle_decision = st.selectbox(
-                        "Changer la décision",
-                        DECISIONS,
-                        index=DECISIONS.index(decision),
-                        key=f"kanban_{index}"
-                    )
-
-                    if st.button(
-                        "Mettre à jour",
-                        key=f"update_{index}"
-                    ):
-
-                        candidats.at[
-                            index, "decision"
-                        ] = nouvelle_decision
-
-                        enregistrer_candidats(candidats)
-
-                        st.rerun()
-# 4. SIDEBAR
-# ==========================================
-
-with st.sidebar:
-
-    st.title("🎯 TalentRank")
-    st.caption("SMART RECRUITMENT PLATFORM")
+    st.dataframe(entretiens, hide_index=True, use_container_width=True)
 
     st.markdown("---")
-
-    st.caption("OVERVIEW")
-
-    page = st.radio(
-    "Navigation",
-    [
-        "Dashboard",
-        "Candidates",
-        "Add Candidate",
-        "Job Offers",
-        "Candidate Comparison",
-        "Kanban Board",
-        "Interview Management"
-    ],
-    label_visibility="collapsed"
-)
-
-    st.markdown("---")
-
-    st.caption("SYSTEM")
-
-    st.markdown(
-    """
-    <div style="
-        background:#26376B;
-        padding:15px;
-        border-radius:10px;
-        margin-top:10px;
-    ">
-        <p style="font-size:12px;color:#C7D2FE;">
-            RECRUITMENT MANAGEMENT
-        </p>
-        <p style="font-size:13px;color:white;">
-            Manage your candidates and simplify
-            your recruitment process.
-        </p>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-
-    st.markdown("---")
-
-    if st.button(
-        "🔄 Reset Demo",
-        use_container_width=True
-    ):
-
-        try:
-
-            lancer_seed_demo()
-
-            st.success("Demo réinitialisée.")
-
-            st.rerun()
-
-        except Exception as erreur:
-
-            st.error(str(erreur))
-
-# ==========================================
-# 5. INITIALISATION
-# ==========================================
-
-FICHIER_CANDIDATS.parent.mkdir(
-    parents=True,
-    exist_ok=True
-)
-
-if (
-    not FICHIER_CANDIDATS.exists()
-    or FICHIER_CANDIDATS.stat().st_size == 0
-):
-
-    try:
-
-        lancer_seed_demo()
-
-    except Exception as erreur:
-
-        st.error(f"Erreur : {erreur}")
-
-        st.stop()
-
-
-tableau = charger_candidats()
-
-tableau["score"] = pd.to_numeric(
-    tableau["score"],
-    errors="coerce"
-).fillna(0)
-
-
-# ==========================================
-# 6. DASHBOARD
-# ==========================================
-
-def afficher_dashboard():
-
-    st.title("Dashboard")
-
-    st.markdown(
-        "Bienvenue dans votre espace de gestion du recrutement."
-    )
-
-    st.markdown("---")
-
-    total = len(tableau)
-
-    score_moyen = (
-        tableau["score"].mean()
-        if total > 0 else 0
-    )
-
-    presel = len(
-        tableau[
-            tableau["decision"] == "Présélectionné"
-        ]
-    )
-
-    recrutes = len(
-        tableau[
-            tableau["decision"] == "Accepté"
-        ]
-    )
-
-    st.subheader("Overview")
-
-    col1, col2, col3, col4 = st.columns(4)
-
-    col1.metric(
-        "Total Candidates",
-        total
-    )
-
-    col2.metric(
-        "Average Score",
-        f"{score_moyen:.1f}/100"
-    )
-
-    col3.metric(
-        "Shortlisted",
-        presel
-    )
-
-    col4.metric(
-        "Hired",
-        recrutes
-    )
-
-    st.markdown("---")
-
-    st.subheader("Recruitment Analytics")
-
-    gauche, droite = st.columns(2)
-
-    with gauche:
-
-        st.markdown("**Candidates by Status**")
-
-        if total > 0:
-
-            distribution = tableau["statut"].value_counts()
-
-            st.bar_chart(
-                distribution,
-                color="#635BDB"
-            )
-
-        else:
-
-            st.info("Aucune candidature disponible.")
-
-    with droite:
-
-        st.markdown("**Recruitment Decisions**")
-
-        if total > 0:
-
-            decisions = tableau["decision"].value_counts()
-
-            st.bar_chart(
-                decisions,
-                color="#172554"
-            )
-
-        else:
-
-            st.info("Aucune donnée disponible.")
-
-    st.markdown("---")
-    # ======================================
-    # RECRUITMENT FUNNEL & TOP CANDIDATES
-    # ======================================
-
-    st.markdown("---")
-
-    gauche, droite = st.columns(2)
-
-    with gauche:
-
-        st.subheader("Recruitment Funnel")
-
-        etapes = [
-            "À décider",
-            "Présélectionné",
-            "Entretien",
-            "Accepté"
-        ]
-
-        funnel = pd.DataFrame({
-            "Stage": etapes,
-            "Candidates": [
-                int((tableau["decision"] == etape).sum())
-                for etape in etapes
-            ]
-        })
-
-        st.bar_chart(
-            funnel.set_index("Stage"),
-            color="#635BDB"
-        )
-
-    with droite:
-
-        st.subheader("🏆 Top Candidates")
-
-        top = tableau.sort_values(
-            "score",
-            ascending=False
-        ).head(5)
-
-        if not top.empty:
-
-            st.dataframe(
-                top[
-                    ["nom", "score", "decision"]
-                ].rename(
-                    columns={
-                        "nom": "Candidate",
-                        "score": "Matching Score",
-                        "decision": "Decision"
-                    }
-                ),
-                hide_index=True,
-                use_container_width=True
-            )
-
-        else:
-
-            st.info("No candidates available.")
-
-    st.subheader("Recent Applications")
-
-    if total > 0:
-
-        recent = tableau.sort_values(
-            "date",
-            ascending=False
-        ).head(5)
-
-        st.dataframe(
-            recent[
-                ["nom", "email", "score", "statut", "date"]
-            ].rename(
-                columns={
-                    "nom": "Candidate",
-                    "email": "Email",
-                    "score": "Score",
-                    "statut": "Status",
-                    "date": "Application Date"
-                }
-            ),
-            hide_index=True,
-            use_container_width=True
-        )
-
-    else:
-
-        st.info("Aucune candidature enregistrée.")
-
-
-# ==========================================
-# 7. CANDIDATE MANAGEMENT
-# ==========================================
-
-def afficher_candidats():
-
-    st.title("Candidate Management")
-
-    st.markdown(
-        "Consultez et gérez les candidatures reçues."
-    )
-    # ======================================
-    # KANBAN BOARD
-    # ======================================
-
-    st.markdown("---")
-    st.subheader("📋 Recruitment Pipeline")
-
-    etapes_kanban = [
-        "À décider",
-        "Présélectionné",
-        "Entretien",
-        "Accepté",
-        "Refusé"
-    ]
-
-    colonnes = st.columns(5)
-
-    for colonne, etape in zip(colonnes, etapes_kanban):
-
-        with colonne:
-
-            st.markdown(f"**{etape}**")
-
-            candidats_etape = tableau[
-                tableau["decision"].astype(str) == etape
-            ]
-
-            st.caption(f"{len(candidats_etape)} candidats")
-
-            for idx, candidat_kanban in candidats_etape.iterrows():
-
-                with st.container(border=True):
-
-                    st.markdown(
-                        f"**{candidat_kanban['nom']}**"
-                    )
-
-                    st.caption(
-                        candidat_kanban["email"]
-                    )
-
-                    st.metric(
-                        "Matching Score",
-                        f"{candidat_kanban['score']}/100"
-                    )
-                    nouvelle_etape = st.selectbox(
-                        "Move to",
-                        etapes_kanban,
-                        index=etapes_kanban.index(etape),
-                        key=f"move_{idx}"
-                    )
-
-                    if st.button(
-                        "Update Stage",
-                        key=f"update_{idx}",
-                        use_container_width=True
-                    ):
-
-                        tableau.at[idx, "decision"] = nouvelle_etape
-
-                        enregistrer_candidats(tableau)
-
-                        st.success("Stage updated!")
-
-                        st.rerun()
-
-    st.markdown("---")
-
-    if tableau.empty:
-
-        st.info("Aucun candidat enregistré.")
-
-        return
-
-    recherche = st.text_input(
-        "🔎 Rechercher un candidat",
-        placeholder="Nom ou adresse e-mail..."
-    )
-
-    filtre = st.selectbox(
-        "Filtrer par statut",
-        ["Tous"] + STATUTS
-    )
-
-    affiches = tableau.copy()
-
-    if recherche:
-
-        affiches = affiches[
-            affiches["nom"].str.contains(
-                recherche,
-                case=False,
-                na=False
-            )
-            |
-            affiches["email"].str.contains(
-                recherche,
-                case=False,
-                na=False
-            )
-        ]
-
-    if filtre != "Tous":
-
-        affiches = affiches[
-            affiches["statut"] == filtre
-        ]
-
-    affiches = affiches.sort_values(
-        "score",
-        ascending=False
-    )
-
-    if affiches.empty:
-
-        st.info("Aucun résultat trouvé.")
-
-        return
-
-    st.dataframe(
-        affiches[
-            [
-                "nom",
-                "email",
-                "offre",
-                "score",
-                "statut",
-                "date",
-                "decision"
-            ]
-        ].rename(
-            columns={
-                "nom": "Candidate",
-                "email": "Email",
-                "offre": "Job Offer",
-                "score": "Score",
-                "statut": "Status",
-                "date": "Date",
-                "decision": "Recruiter Decision"
-            }
-        ),
-        hide_index=True,
-        use_container_width=True
-    )
-
-    st.markdown("---")
-
-    st.subheader("Candidate Profile")
-
-    index = st.selectbox(
-        "Sélectionner un candidat",
-        affiches.index,
+    st.subheader("📝 Interview Evaluation")
+
+    indice = st.selectbox(
+        "Select an Interview",
+        entretiens.index.tolist(),
         format_func=lambda i: (
-            f"{tableau.at[i, 'nom']} — "
-            f"{tableau.at[i, 'email']}"
+            f"{entretiens.at[i, 'candidat']} — "
+            f"{entretiens.at[i, 'date']} {entretiens.at[i, 'heure']}"
+        ),
+    )
+    entretien = entretiens.loc[indice]
+    actuel = entretien["resultat"] if entretien["resultat"] in RESULTATS else "En attente"
+
+    with st.form("form_feedback"):
+        feedback = st.text_area(
+            "Recruiter Feedback", value=str(entretien["feedback"])
         )
-    )
+        resultat = st.selectbox(
+            "Interview Result", RESULTATS, index=RESULTATS.index(actuel)
+        )
+        sauvegarder = st.form_submit_button("Save Evaluation")
 
-    candidat = tableau.loc[index]
+    if sauvegarder:
+        entretiens.at[indice, "feedback"] = feedback
+        entretiens.at[indice, "resultat"] = resultat
+        enregistrer_entretiens(entretiens)
 
-    st.markdown(f"### {candidat['nom']}")
+        if resultat == "Réussi":
+            modifier_decision(entretien["candidate_id"], "Accepté")
+        elif resultat == "Échoué":
+            modifier_decision(entretien["candidate_id"], "Refusé")
 
-    c1, c2, c3 = st.columns(3)
-
-    c1.metric(
-        "Matching Score",
-        f"{candidat['score']}/100"
-    )
-
-    c2.metric(
-        "Status",
-        candidat["statut"]
-    )
-
-    c3.metric(
-        "Decision",
-        candidat["decision"]
-    )
-
-    st.write(f"**Email:** {candidat['email']}")
-    
-    st.markdown("---")
-
-    st.subheader("Application Information")
-
-    c1, c2 = st.columns(2)
-
-    c1.info(
-        f"💼 **Job Offer:** {candidat.get('offre', 'Not specified')}"
-    )
-
-    c2.info(
-        f"📅 **Application Date:** {candidat.get('date', 'Not specified')}"
-    )
-
-    # ======================================
-    # CV DOWNLOAD AND PREVIEW
-    # ======================================
-
-    st.markdown("---")
-
-    st.subheader("Candidate Documents")
-
-    cv_path_rel = str(
-        candidat.get("cv_path", "")
-    ).strip().replace("\\", "/")
-
-    if cv_path_rel:
-
-        chemin_cv = (
-            BASE_DIR / cv_path_rel
-        ).resolve()
-
-        try:
-
-            chemin_cv.relative_to(BASE_DIR.resolve())
-
-            fichier_existe = chemin_cv.is_file()
-
-        except ValueError:
-
-            fichier_existe = False
-
-        if fichier_existe:
-
-            contenu_pdf = chemin_cv.read_bytes()
-
-            st.download_button(
-                "📄 Télécharger le CV",
-                data=contenu_pdf,
-                file_name=f"{candidat['nom']}_CV.pdf",
-                mime="application/pdf",
-                key=f"cv_{index}"
-            )
-
-            st.markdown("### Aperçu du CV")
-
-            pdf_base64 = base64.b64encode(
-                contenu_pdf
-            ).decode("utf-8")
-
-            st.markdown(
-                f"""
-                <iframe
-                    src="data:application/pdf;base64,{pdf_base64}"
-                    width="100%"
-                    height="700"
-                    style="
-                        border:1px solid #E5E7EB;
-                        border-radius:10px;
-                    ">
-                </iframe>
-                """,
-                unsafe_allow_html=True
-            )
-
-        # ======================================
-            # SKILLS & COMPETENCIES ANALYSIS
-            # ======================================
-
-            st.markdown("---")
-
-            st.subheader("🧠 Skills & Competencies Analysis")
-
-            lecteur = PdfReader(io.BytesIO(contenu_pdf))
-
-            texte_profile = "\n".join(
-                page.extract_text() or ""
-                for page in lecteur.pages
-            )
-
-            analyse = calculer_score(texte_profile)
-
-            for critere, detail in analyse["détails"].items():
-
-                score = detail["score"]
-                maximum = detail["maximum"]
-
-                st.write(f"**{critere}** — {score}/{maximum}")
-
-                st.progress(
-                    min(max(score / maximum, 0), 1)
-                )
-
-                st.caption(detail["détail"])
-
-        else:
-
-            st.warning("CV non disponible.")
-
-    else:
-
-        st.info("Aucun CV enregistré pour ce candidat.")
-
-    # ======================================
-    # RECRUITER DECISION
-    # ======================================
-
-    st.markdown("---")
-
-    st.subheader("Recruitment Decision")
-
-    decision_actuelle = str(
-        candidat["decision"]
-    )
-
-    if decision_actuelle not in DECISIONS:
-
-        decision_actuelle = "À décider"
-
-    nouvelle_decision = st.selectbox(
-        "Décision du recruteur",
-        DECISIONS,
-        index=DECISIONS.index(decision_actuelle),
-        key=f"decision_{index}"
-    )
-
-    if st.button(
-        "Save Decision",
-        key=f"save_{index}"
-    ):
-
-        tableau.at[index, "decision"] = nouvelle_decision
-
-        enregistrer_candidats(tableau)
-
-        st.success("Décision enregistrée.")
-
+        st.success("Interview evaluation saved!")
         st.rerun()
 
 
 # ==========================================
+# 11. SIDEBAR + INITIALISATION + NAVIGATION
 # ==========================================
-# CANDIDATE COMPARISON
-# ==========================================
 
-def afficher_comparaison():
+PAGES = {
+    "Dashboard": afficher_dashboard,
+    "Candidates": afficher_candidats,
+    "Add Candidate": ajouter_candidat,
+    "Job Offers": afficher_offres,
+    "Candidate Comparison": afficher_comparaison,
+    "Kanban Board": afficher_kanban,
+    "Interview Management": afficher_entretiens,
+}
 
-    st.title("⚖️ Candidate Comparison")
+with st.sidebar:
+    st.markdown(LOGO_HTML, unsafe_allow_html=True)
 
-    st.markdown(
-        "Comparez plusieurs candidats pour une même offre d'emploi."
-    )
-
-    candidats = charger_candidats()
-
-    if candidats.empty:
-        st.warning("No candidates available.")
-        return
-
-    if "offre" not in candidats.columns:
-        st.warning("Job Offer information is missing.")
-        return
-
-    offres = candidats["offre"].dropna().unique().tolist()
-
-    if not offres:
-        st.info("No Job Offers linked to candidates.")
-        return
-
-    offre_choisie = st.selectbox(
-        "Select Job Offer",
-        offres
-    )
-    offre_disponibles = charger_offres() 
-
-    candidats_offre = candidats[
-        candidats["offre"] == offre_choisie
-    ].copy()
-
-    if len(candidats_offre) < 2:
-        st.warning(
-            "You need at least 2 candidates for comparison."
-        )
-        return
-
-    candidats_offre["score"] = pd.to_numeric(
-        candidats_offre["score"],
-        errors="coerce"
-    )
-
-    candidats_offre["label"] = (
-        candidats_offre["nom"].astype(str)
-        + " — "
-        + candidats_offre["email"].astype(str)
-    )
-
-    selection = st.multiselect(
-        "Select candidates to compare",
-        candidats_offre["label"].tolist(),
-        max_selections=3
-    )
-
-    if len(selection) < 2:
-        st.info("Select at least 2 candidates.")
-        return
-
-    comparaison = candidats_offre[
-        candidats_offre["label"].isin(selection)
-    ].copy()
-
-    comparaison = comparaison.sort_values(
-        "score",
-        ascending=False
+    page = st.radio(
+        "Navigation", list(PAGES.keys()), label_visibility="collapsed"
     )
 
     st.markdown("---")
 
-    st.subheader("📊 Detailed Skills Comparison")
-
-    details_comparaison = []
-
-    for _, candidat in comparaison.iterrows():
-
-        cv_path_rel = str(
-            candidat.get("cv_path", "")
-        ).strip().replace("\\", "/")
-
-        if not cv_path_rel:
-            continue
-
-        chemin = (BASE_DIR / cv_path_rel).resolve()
-
+    if st.button("🔄 Reset Demo", use_container_width=True):
         try:
-            chemin.relative_to(BASE_DIR.resolve())
-
-            if not chemin.is_file():
-                continue
-
-            lecteur = PdfReader(str(chemin))
-
-            texte_cv = "\n".join(
-                page.extract_text() or ""
-                for page in lecteur.pages
-            )
-
-            resultat = calculer_score(texte_cv) 
-
-            offre_info = offres_disponibles[
-    offres_disponibles["titre"] == offre_choisie
-]
-
-            competences_requises = []
-
-            if not offre_info.empty:
-                competences_brutes = offre_info.iloc[0].get(
-                    "competences_requises", ""
-                )
-
-                competences_requises = [
-                    c.strip()
-                    for c in str(competences_brutes).split(",")
-                    if c.strip()
-                ]
-
-            matching = calculer_matching_offre(
-                texte_cv,
-                competences_requises
-            )
-
-            ligne = {
-                "Candidate": candidat["nom"]
-            }
-
-            for critere, detail in resultat["détails"].items():
-
-                ligne[critere] = (
-                    f"{detail['score']}/{detail['maximum']}"
-                )
-
-            details_comparaison.append(ligne)
-
-        except Exception:
-            continue
-
-    if details_comparaison:
-
-        st.dataframe(
-            pd.DataFrame(details_comparaison),
-            hide_index=True,
-            use_container_width=True
-        )
-
-    else:
-
-        st.warning("No CV details available for comparison.")
-
-    st.markdown("---")
-
-    st.subheader("📊 Comparative Analysis")
-
-    colonnes = [
-        "nom", "email", "score", "statut", "decision"
-    ]
-
-    st.dataframe(
-        comparaison[colonnes].rename(columns={
-            "nom": "Candidate",
-            "email": "Email",
-            "score": "Matching Score",
-            "statut": "Status",
-            "decision": "Recruitment Decision"
-        }),
-        hide_index=True,
-        use_container_width=True
-    )
-
-    meilleur = comparaison.iloc[0]
-
-    st.success(
-        f"🏆 Highest Matching Score: {meilleur['nom']} "
-        f"({meilleur['score']}/100)"
-    )
-# 8. ADD CANDIDATE
-# ==========================================
-
-
-def ajouter_candidat():
-
-    st.title("Add New Candidate")
-
-    st.markdown(
-        "Enregistrez une nouvelle candidature dans TalentRank."
-    )
-
-    st.markdown("---")
-
-    with st.form("formulaire_candidature"):
-
-        st.subheader("Personal Information")
-
-        nom = st.text_input("Full Name *")
-        email = st.text_input("Email Address *")
-
-        offres_disponibles = charger_offres()
-
-        if not offres_disponibles.empty:
-            offre_selectionnee = st.selectbox(
-                "Select Job Offer *",
-                offres_disponibles["titre"].tolist()
-            )
-        else:
-            offre_selectionnee = ""
-            st.warning(
-                "No job offers available. Create a Job Offer first."
-            )
-
-        st.subheader("Documents")
-
-        cv = st.file_uploader(
-            "Upload CV (PDF) *",
-            type=["pdf"]
-        )
-
-        envoyer = st.form_submit_button(
-            "Submit Application",
-            use_container_width=True
-        )
-
-    if envoyer:
-
-        erreurs = []
-
-        if not nom.strip():
-            erreurs.append("Le nom est obligatoire.")
-
-        if not email.strip() or "@" not in email:
-            erreurs.append("Veuillez saisir un e-mail valide.")
-
-        if cv is None:
-            erreurs.append("Veuillez joindre un CV.")
-
-        if erreurs:
-            for erreur in erreurs:
-                st.error(erreur)
-            return
-
-        try:
-
-            lecteur = PdfReader(
-                io.BytesIO(cv.getvalue())
-            )
-
-            texte_cv = "\n".join(
-                page.extract_text() or ""
-                for page in lecteur.pages
-            )
-
-            resultat = calculer_score(texte_cv)
-
-            dossier_cvs = BASE_DIR / "data" / "cvs"
-            dossier_cvs.mkdir(parents=True, exist_ok=True)
-
-            nom_fichier = f"{uuid.uuid4().hex[:8]}.pdf"
-            chemin_cv = dossier_cvs / nom_fichier
-
-            chemin_cv.write_bytes(cv.getvalue())
-
-            matching = None
-            competences_requises = []
-
-            if offre_selectionnee and not offres_disponibles.empty:
-
-                offre_info = offres_disponibles[
-                    offres_disponibles["titre"] == offre_selectionnee
-                ]
-
-                if not offre_info.empty:
-
-                    competences_brutes = offre_info.iloc[0].get(
-                        "competences_requises", ""
-                    )
-
-                    competences_requises = [
-                        c.strip()
-                        for c in str(competences_brutes).split(",")
-                        if c.strip()
-                    ]
-
-            if competences_requises:
-                matching = calculer_matching_offre(
-                    texte_cv,
-                    competences_requises
-                )
-
-            nouvelle = pd.DataFrame([{
-                "candidate_id": uuid.uuid4().hex[:8],
-                "offre": offre_selectionnee,
-                "nom": nom.strip(),
-                "email": email.strip(),
-                "score": resultat["score"],
-                "matching_score": (
-                    matching["score"] if matching else ""
-                ),
-                "statut": resultat["statut"],
-                "date": date.today().isoformat(),
-                "decision": "À décider",
-                "cv_path": str(chemin_cv.relative_to(BASE_DIR))
-            }])
-
-            candidats = charger_candidats()
-
-            candidats = pd.concat(
-                [candidats, nouvelle],
-                ignore_index=True
-            )
-
-            enregistrer_candidats(candidats)
-
-            st.success(
-                f"Candidature reçue pour {nom} !"
-            )
-
-            st.subheader("CV Analysis")
-
-            st.metric(
-                "General Score",
-                f"{resultat['score']}/100"
-            )
-
-            st.write(
-                f"**Status : {resultat['statut']}**"
-            )
-
-            if matching:
-
-                st.metric(
-                    "Job Matching Score",
-                    f"{matching['score']}/100"
-                )
-
-                st.write("**Skills Found:**")
-                st.write(matching["competences_trouvees"])
-
-                st.write("**Missing Skills:**")
-                st.write(matching["competences_manquantes"])
-
-            else:
-                st.info(
-                    "No required skills defined for this offer."
-                )
-
-            details = resultat.get(
-                "détails",
-                resultat.get("details", {})
-            )
-
-            if isinstance(details, dict) and details:
-
-                st.subheader("Score Details")
-
-                lignes = []
-
-                for critere, detail in details.items():
-
-                    if isinstance(detail, dict):
-
-                        lignes.append({
-                            "Critère": critere,
-                            "Score": (
-                                f"{detail.get('score', '—')} / "
-                                f"{detail.get('maximum', '—')}"
-                            ),
-                            "Détail": detail.get(
-                                "détail",
-                                detail.get("detail", "")
-                            )
-                        })
-
-                    else:
-
-                        lignes.append({
-                            "Critère": critere,
-                            "Score": "—",
-                            "Détail": str(detail)
-                        })
-
-                st.dataframe(
-                    pd.DataFrame(lignes),
-                    hide_index=True,
-                    use_container_width=True
-                )
-
-            st.caption(
-                "L'évaluation est indicative. "
-                "La décision finale appartient au recruteur."
-            )
-
+            lancer_seed_demo()
+            st.success("Demo réinitialisée.")
+            st.rerun()
         except Exception as erreur:
+            st.error(str(erreur))
 
-            st.error(
-                f"Erreur lors du traitement du CV : {erreur}"
-            ) 
+DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-# ==========================================
-# PAGE NAVIGATION
-# ==========================================
+if not FICHIER_CANDIDATS.exists() or FICHIER_CANDIDATS.stat().st_size == 0:
+    try:
+        lancer_seed_demo()
+    except Exception as erreur:
+        st.error(f"Erreur : {erreur}")
+        st.stop()
 
-if page == "Dashboard":
-    afficher_dashboard()
-
-elif page == "Candidates":
-    afficher_candidats()
-
-elif page == "Add Candidate":
-    ajouter_candidat()
-
-elif page == "Job Offers":
-    afficher_offres()
-
-elif page == "Candidate Comparison":
-    afficher_comparaison()
-
-elif page == "Kanban Board":
-    afficher_kanban()
-
-elif page == "Interview Management":
-    afficher_entretiens()
+PAGES[page]()
 
