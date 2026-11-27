@@ -1388,9 +1388,8 @@ def afficher_candidats():
         "Preview (modifiable)", value=corps, height=220,
         key=f"apercu_{cid}_{modele}",
     )
-    st.link_button(
-        "Open in mail app",
-        lien_mailto(candidat["email"], sujet, corps_final),
+    st.markdown(
+        f"[✉️ Open in mail app]({lien_mailto(candidat['email'], sujet, corps_final)})"
     )
 
     # ---- Décision
@@ -1896,6 +1895,136 @@ def afficher_entretiens():
 
     if entretiens.empty:
         st.info("No interviews scheduled yet.")
+        return
+
+    st.dataframe(entretiens, hide_index=True, use_container_width=True)
+
+    st.markdown("---")
+    st.subheader("📝 Interview Evaluation")
+
+    indice = st.selectbox(
+        "Select an Interview",
+        entretiens.index.tolist(),
+        format_func=lambda i: (
+            f"{entretiens.at[i, 'candidat']} — "
+            f"{entretiens.at[i, 'date']} {entretiens.at[i, 'heure']}"
+        ),
+    )
+    entretien = entretiens.loc[indice]
+    actuel = entretien["resultat"] if entretien["resultat"] in RESULTATS else "En attente"
+
+    with st.form("form_feedback"):
+        feedback = st.text_area(
+            "Recruiter Feedback", value=str(entretien["feedback"])
+        )
+        resultat = st.selectbox(
+            "Interview Result", RESULTATS, index=RESULTATS.index(actuel)
+        )
+        sauvegarder = st.form_submit_button("Save Evaluation")
+
+    if sauvegarder:
+        entretiens.at[indice, "feedback"] = feedback
+        entretiens.at[indice, "resultat"] = resultat
+        enregistrer_entretiens(entretiens)
+
+        if resultat == "Réussi":
+            modifier_decision(entretien["candidate_id"], "Accepté")
+        elif resultat == "Échoué":
+            modifier_decision(entretien["candidate_id"], "Refusé")
+
+        st.success("Interview evaluation saved!")
+        st.rerun()
+
+
+# ==========================================
+# 11. SIDEBAR + INITIALISATION + NAVIGATION
+# ==========================================
+
+PAGES = {
+    "Dashboard": afficher_dashboard,
+    "Candidates": afficher_candidats,
+    "Add Candidate": ajouter_candidat,
+    "CV Scanner": afficher_scanner,
+    "Job Offers": afficher_offres,
+    "Candidate Comparison": afficher_comparaison,
+    "Kanban Board": afficher_kanban,
+    "Interview Management": afficher_entretiens,
+    "My Account": afficher_compte,
+    "Users": afficher_utilisateurs,
+}
+
+def principal():
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    (DATA_DIR / "cvs").mkdir(parents=True, exist_ok=True)
+
+    # Page publique de candidature (sans connexion) : ?careers=1
+    try:
+        page_publique = st.query_params.get("careers")
+    except Exception:
+        page_publique = None
+
+    if page_publique:
+        afficher_carrieres()
+        st.stop()
+
+    # Acces protege : il faut etre connecte
+    if utilisateur_courant() is None:
+        afficher_connexion()
+        st.stop()
+
+    utilisateur = utilisateur_courant()
+    pages_visibles = [p for p in PAGES if p != "Users" or est_admin()]
+
+    if st.session_state.get("page") not in pages_visibles:
+        st.session_state["page"] = "Dashboard"
+
+    with st.sidebar:
+        st.markdown(LOGO_HTML_SIDEBAR, unsafe_allow_html=True)
+
+        for nom_page in pages_visibles:
+            actif = st.session_state["page"] == nom_page
+            if st.button(
+                nom_page,
+                key=f"nav_{nom_page}",
+                use_container_width=True,
+                type="primary" if actif else "secondary",
+            ):
+                st.session_state["page"] = nom_page
+                st.rerun()
+
+        st.markdown("---")
+        st.caption(f"👤 {utilisateur['nom']} · {utilisateur['role']}")
+
+        if st.button("Log out", key="logout", use_container_width=True):
+            st.session_state.pop("user", None)
+            st.session_state.pop("page", None)
+            st.rerun()
+
+        if est_admin() and st.button(
+            "Reset Demo", key="reset_demo", use_container_width=True
+        ):
+            try:
+                lancer_seed_demo()
+                st.success("Demo réinitialisée.")
+                st.rerun()
+            except Exception as erreur:
+                st.error(str(erreur))
+
+    if not FICHIER_CANDIDATS.exists() or FICHIER_CANDIDATS.stat().st_size == 0:
+        try:
+            lancer_seed_demo()
+        except Exception as erreur:
+            st.error(f"Erreur : {erreur}")
+            st.stop()
+
+    PAGES[st.session_state["page"]]()
+
+
+try:
+    principal()
+except Exception as erreur:
+    st.error("Une erreur est survenue dans l'application.")
+    st.exception(erreur)
       
 
       
