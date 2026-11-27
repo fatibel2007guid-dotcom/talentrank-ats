@@ -1,12 +1,16 @@
 """TalentRank ATS - Smart Recruitment Platform."""
 
 import base64
+import hashlib
+import hmac
 import io
+import secrets
 import subprocess
 import sys
 import uuid
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
+from urllib.parse import quote
 
 import altair as alt
 import pandas as pd
@@ -34,11 +38,11 @@ FICHIER_ENTRETIENS = DATA_DIR / "entretiens.csv"
 
 COLONNES_CSV = [
     "candidate_id", "nom", "email", "score", "matching_score",
-    "statut", "date", "decision", "offre", "cv_path",
+    "statut", "date", "decision", "offre", "cv_path", "source",
 ]
 COLONNES_OFFRES = [
     "id", "titre", "departement", "contrat", "localisation",
-    "description", "competences_requises", "places", "date",
+    "description", "competences_requises", "places", "date", "statut_offre",
 ]
 COLONNES_ENTRETIENS = [
     "id", "candidate_id", "candidat", "offre", "date", "heure",
@@ -48,6 +52,14 @@ COLONNES_ENTRETIENS = [
 STATUTS = ["À contacter", "À étudier", "Refusé"]
 DECISIONS = ["À décider", "Présélectionné", "Entretien", "Accepté", "Refusé"]
 RESULTATS = ["En attente", "Réussi", "Échoué"]
+
+FICHIER_UTILISATEURS = DATA_DIR / "utilisateurs.csv"
+COLONNES_UTILISATEURS = ["email", "nom", "role", "mot_de_passe", "date"]
+ROLES = ["Admin", "Recruteur"]
+
+FICHIER_NOTES = DATA_DIR / "notes.csv"
+COLONNES_NOTES = ["id", "candidate_id", "auteur", "date", "note"]
+SOURCES = ["LinkedIn", "Site carrières", "Recommandation", "ANAPEC", "Autre"]
 
 COMPETENCES_DISPONIBLES = [
     "Recrutement", "Sourcing", "Entretien", "ATS", "Excel",
@@ -112,25 +124,35 @@ section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"] {
 }
 section[data-testid="stSidebar"] hr { border-color: var(--border); margin: 1rem 0; }
 
-/* NAVIGATION : sans points, onglet actif en bleu */
-section[data-testid="stSidebar"] [data-testid="stRadio"] label > div:first-child {
-    display: none !important;
-}
-section[data-testid="stSidebar"] [data-testid="stRadio"] label {
+/* NAVIGATION : boutons simples, sans puces */
+section[data-testid="stSidebar"] .stButton button {
     width: 100%;
+    justify-content: flex-start;
+    text-align: left;
     padding: 10px 14px;
-    margin-bottom: 2px;
     border-radius: 10px;
-    cursor: pointer;
-    transition: background 0.15s ease;
-}
-section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
-    color: var(--text);
     font-weight: 500;
+    box-shadow: none;
 }
-section[data-testid="stSidebar"] [data-testid="stRadio"] label:hover { background: #EFF6FF; }
-section[data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked) { background: var(--secondary); }
-section[data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked) p { color: #FFFFFF; font-weight: 600; }
+section[data-testid="stSidebar"] .stButton button[kind="secondary"],
+section[data-testid="stSidebar"] .stButton button[data-testid="stBaseButton-secondary"] {
+    background: transparent;
+    border: none;
+    color: var(--text);
+}
+section[data-testid="stSidebar"] .stButton button[kind="secondary"] p,
+section[data-testid="stSidebar"] .stButton button[data-testid="stBaseButton-secondary"] p {
+    color: var(--text) !important;
+}
+section[data-testid="stSidebar"] .stButton button[kind="secondary"]:hover,
+section[data-testid="stSidebar"] .stButton button[data-testid="stBaseButton-secondary"]:hover {
+    background: #EFF6FF;
+}
+section[data-testid="stSidebar"] .stButton button[kind="primary"],
+section[data-testid="stSidebar"] .stButton button[data-testid="stBaseButton-primary"] {
+    background: var(--secondary);
+    border: none;
+}
 
 /* METRIC CARDS */
 div[data-testid="stMetric"] {
@@ -145,15 +167,18 @@ div[data-testid="stMetricValue"] { color: var(--primary); font-weight: 800; }
 /* BUTTONS */
 .stButton button, .stFormSubmitButton button, .stDownloadButton button {
     background: var(--secondary);
-    color: white;
+    color: #FFFFFF;
     border: none;
     border-radius: 9px;
     font-weight: 600;
     padding: 10px 18px;
 }
+.stButton button p, .stFormSubmitButton button p, .stDownloadButton button p {
+    color: #FFFFFF !important;
+}
 .stButton button:hover, .stFormSubmitButton button:hover, .stDownloadButton button:hover {
     background: #1D4ED8;
-    color: white;
+    color: #FFFFFF;
     border: none;
 }
 
@@ -355,6 +380,389 @@ def graphique_cercle(serie, palette=None):
 
 
 # ==========================================
+# 3B. AUTHENTIFICATION & UTILISATEURS
+# ==========================================
+
+
+def hacher_mot_de_passe(mot_de_passe, sel=None):
+    sel = sel or secrets.token_hex(8)
+    empreinte = hashlib.pbkdf2_hmac(
+        "sha256", mot_de_passe.encode("utf-8"), sel.encode("utf-8"), 100_000
+    ).hex()
+    return f"{sel}${empreinte}"
+
+
+def verifier_mot_de_passe(mot_de_passe, stocke):
+    if "$" not in str(stocke):
+        return False
+    sel = str(stocke).split("$", 1)[0]
+    return hmac.compare_digest(hacher_mot_de_passe(mot_de_passe, sel), str(stocke))
+
+
+def charger_utilisateurs():
+    return lire_csv(FICHIER_UTILISATEURS, COLONNES_UTILISATEURS)
+
+
+def enregistrer_utilisateurs(tableau):
+    ecrire_csv(tableau, FICHIER_UTILISATEURS, COLONNES_UTILISATEURS)
+
+
+def utilisateur_courant():
+    return st.session_state.get("user")
+
+
+def est_admin():
+    utilisateur = utilisateur_courant()
+    return bool(utilisateur) and utilisateur["role"] == "Admin"
+
+
+def creer_compte(nom, email, mot_de_passe, confirmation):
+    email = email.strip().lower()
+    utilisateurs = charger_utilisateurs()
+
+    if not nom.strip():
+        return "Le nom est obligatoire."
+    if "@" not in email or "." not in email:
+        return "Veuillez saisir un e-mail valide."
+    if len(mot_de_passe) < 6:
+        return "Le mot de passe doit contenir au moins 6 caractères."
+    if mot_de_passe != confirmation:
+        return "Les mots de passe ne correspondent pas."
+    if (utilisateurs["email"].str.lower() == email).any():
+        return "Un compte existe déjà avec cet e-mail."
+
+    nouveau = pd.DataFrame([{
+        "email": email,
+        "nom": nom.strip(),
+        # Le premier compte créé devient administrateur
+        "role": "Admin" if utilisateurs.empty else "Recruteur",
+        "mot_de_passe": hacher_mot_de_passe(mot_de_passe),
+        "date": date.today().isoformat(),
+    }])
+    enregistrer_utilisateurs(pd.concat([utilisateurs, nouveau], ignore_index=True))
+    return None
+
+
+def authentifier(email, mot_de_passe):
+    email = email.strip().lower()
+    utilisateurs = charger_utilisateurs()
+    ligne = utilisateurs[utilisateurs["email"].str.lower() == email]
+    if ligne.empty:
+        return None
+    compte = ligne.iloc[0]
+    if not verifier_mot_de_passe(mot_de_passe, compte["mot_de_passe"]):
+        return None
+    return {"email": compte["email"], "nom": compte["nom"], "role": compte["role"]}
+
+
+def afficher_connexion():
+    st.markdown(
+        "<style>section[data-testid='stSidebar'], "
+        "[data-testid='collapsedControl'] {display: none;}</style>",
+        unsafe_allow_html=True,
+    )
+
+    _, centre, _ = st.columns([1, 1.2, 1])
+
+    with centre:
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown(LOGO_HTML, unsafe_allow_html=True)
+        st.markdown("### Bienvenue")
+
+        onglet_connexion, onglet_inscription = st.tabs(
+            ["Log in", "Create account"]
+        )
+
+        with onglet_connexion:
+            with st.form("form_login"):
+                email = st.text_input("Email")
+                mot_de_passe = st.text_input("Password", type="password")
+                connecter = st.form_submit_button(
+                    "Log in", use_container_width=True
+                )
+
+            if connecter:
+                utilisateur = authentifier(email, mot_de_passe)
+                if utilisateur:
+                    st.session_state["user"] = utilisateur
+                    st.session_state["page"] = "Dashboard"
+                    st.rerun()
+                else:
+                    st.error("E-mail ou mot de passe incorrect.")
+
+        with onglet_inscription:
+            if charger_utilisateurs().empty:
+                st.info("Le premier compte créé devient Administrateur.")
+
+            with st.form("form_inscription"):
+                nom = st.text_input("Full Name")
+                email_new = st.text_input("Email Address")
+                mdp = st.text_input("Password (6 caractères min.)", type="password")
+                mdp2 = st.text_input("Confirm Password", type="password")
+                creer = st.form_submit_button(
+                    "Create account", use_container_width=True
+                )
+
+            if creer:
+                erreur = creer_compte(nom, email_new, mdp, mdp2)
+                if erreur:
+                    st.error(erreur)
+                else:
+                    st.success("Compte créé. Vous pouvez vous connecter.")
+
+
+def afficher_compte():
+    st.title("My Account")
+    st.markdown("Vos informations et votre mot de passe.")
+    st.markdown("---")
+
+    utilisateur = utilisateur_courant()
+
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Name", utilisateur["nom"])
+    c2.metric("Role", utilisateur["role"])
+    c3.write(f"**Email:** {utilisateur['email']}")
+
+    st.markdown("---")
+    st.subheader("Change Password")
+
+    with st.form("form_mdp"):
+        actuel = st.text_input("Current Password", type="password")
+        nouveau = st.text_input("New Password", type="password")
+        confirmation = st.text_input("Confirm New Password", type="password")
+        valider = st.form_submit_button("Update Password")
+
+    if valider:
+        if authentifier(utilisateur["email"], actuel) is None:
+            st.error("Mot de passe actuel incorrect.")
+        elif len(nouveau) < 6:
+            st.error("Le nouveau mot de passe doit contenir au moins 6 caractères.")
+        elif nouveau != confirmation:
+            st.error("Les mots de passe ne correspondent pas.")
+        else:
+            utilisateurs = charger_utilisateurs()
+            masque = utilisateurs["email"].str.lower() == utilisateur["email"].lower()
+            utilisateurs.loc[masque, "mot_de_passe"] = hacher_mot_de_passe(nouveau)
+            enregistrer_utilisateurs(utilisateurs)
+            st.success("Mot de passe mis à jour.")
+
+
+def afficher_utilisateurs():
+    st.title("User Management")
+    st.markdown("Gérez les comptes et les rôles de l'équipe.")
+    st.markdown("---")
+
+    if not est_admin():
+        st.error("Accès réservé aux administrateurs.")
+        return
+
+    utilisateurs = charger_utilisateurs()
+    moi = utilisateur_courant()["email"].lower()
+
+    st.dataframe(
+        utilisateurs[["nom", "email", "role", "date"]].rename(columns={
+            "nom": "Name", "email": "Email", "role": "Role", "date": "Created",
+        }),
+        hide_index=True, use_container_width=True,
+    )
+
+    st.markdown("---")
+    st.subheader("Edit an account")
+
+    email = st.selectbox("Account", utilisateurs["email"].tolist())
+    ligne = utilisateurs[utilisateurs["email"] == email].iloc[0]
+    role = st.selectbox(
+        "Role", ROLES,
+        index=ROLES.index(ligne["role"]) if ligne["role"] in ROLES else 1,
+    )
+
+    b1, b2 = st.columns(2)
+    nb_admins = int((utilisateurs["role"] == "Admin").sum())
+
+    if b1.button("Save role", use_container_width=True):
+        if ligne["role"] == "Admin" and role != "Admin" and nb_admins <= 1:
+            st.error("Il faut garder au moins un administrateur.")
+        else:
+            utilisateurs.loc[utilisateurs["email"] == email, "role"] = role
+            enregistrer_utilisateurs(utilisateurs)
+            st.success("Rôle mis à jour.")
+            st.rerun()
+
+    if b2.button(
+        "Delete account", use_container_width=True,
+        disabled=(email.lower() == moi),
+    ):
+        enregistrer_utilisateurs(utilisateurs[utilisateurs["email"] != email])
+        st.success("Compte supprimé.")
+        st.rerun()
+
+
+# ==========================================
+# 3C. NOTES, EMAILS ET PAGE CARRIERES
+# ==========================================
+
+MODELES_EMAIL = {
+    "Accusé de réception": (
+        "Votre candidature – {offre}",
+        "Bonjour {nom},\n\nNous avons bien reçu votre candidature pour le poste "
+        "de {offre}. Notre équipe l'étudie et reviendra vers vous rapidement.\n\n"
+        "Cordialement,\n{recruteur}",
+    ),
+    "Invitation à un entretien": (
+        "Invitation à un entretien – {offre}",
+        "Bonjour {nom},\n\nVotre profil a retenu notre attention pour le poste "
+        "de {offre}. Nous souhaiterions vous rencontrer pour un entretien.\n"
+        "Merci de nous indiquer vos disponibilités.\n\nCordialement,\n{recruteur}",
+    ),
+    "Offre positive": (
+        "Suite favorable – {offre}",
+        "Bonjour {nom},\n\nNous avons le plaisir de vous informer que votre "
+        "candidature pour le poste de {offre} a été retenue. Nous reviendrons "
+        "vers vous pour les prochaines étapes.\n\nCordialement,\n{recruteur}",
+    ),
+    "Réponse négative": (
+        "Votre candidature – {offre}",
+        "Bonjour {nom},\n\nMerci pour l'intérêt porté à notre entreprise. "
+        "Après étude de votre dossier, nous ne pouvons malheureusement pas donner "
+        "suite à votre candidature pour le poste de {offre}.\n\n"
+        "Nous vous souhaitons une pleine réussite.\n\nCordialement,\n{recruteur}",
+    ),
+}
+
+
+def generer_email(modele, candidat, recruteur):
+    sujet, corps = MODELES_EMAIL[modele]
+    valeurs = {
+        "nom": candidat["nom"],
+        "offre": candidat["offre"] or "ce poste",
+        "recruteur": recruteur["nom"],
+    }
+    return sujet.format(**valeurs), corps.format(**valeurs)
+
+
+def lien_mailto(destinataire, sujet, corps):
+    return f"mailto:{destinataire}?subject={quote(sujet)}&body={quote(corps)}"
+
+
+def charger_notes():
+    return lire_csv(FICHIER_NOTES, COLONNES_NOTES)
+
+
+def enregistrer_notes(tableau):
+    ecrire_csv(tableau, FICHIER_NOTES, COLONNES_NOTES)
+
+
+def offres_ouvertes():
+    offres = charger_offres()
+    return offres[offres["statut_offre"] != "Closed"]
+
+
+def creer_candidature(nom, email, offre, contenu_pdf, source):
+    """Enregistre une candidature. Retourne un message d'erreur ou None."""
+    if not nom.strip():
+        return "Le nom est obligatoire."
+    if "@" not in email:
+        return "Veuillez saisir un e-mail valide."
+    if contenu_pdf is None:
+        return "Veuillez joindre un CV (PDF)."
+
+    existants = charger_candidats()
+    if not existants.empty and (
+        (existants["email"].astype(str).str.lower() == email.strip().lower())
+        & (existants["offre"].astype(str) == str(offre))
+    ).any():
+        return "Vous avez déjà postulé à cette offre."
+
+    try:
+        texte_cv = texte_pdf(contenu_pdf)
+    except Exception:
+        return "Le fichier PDF est illisible."
+
+    resultat = calculer_score(texte_cv)
+
+    dossier_cvs = DATA_DIR / "cvs"
+    dossier_cvs.mkdir(parents=True, exist_ok=True)
+    chemin = dossier_cvs / f"{uuid.uuid4().hex[:8]}.pdf"
+    chemin.write_bytes(contenu_pdf)
+
+    requises = competences_offre(offre)
+    matching = calculer_matching_offre(texte_cv, requises) if requises else None
+
+    nouvelle = pd.DataFrame([{
+        "candidate_id": uuid.uuid4().hex[:8],
+        "offre": offre,
+        "nom": nom.strip(),
+        "email": email.strip(),
+        "score": resultat["score"],
+        "matching_score": matching["score"] if matching else "",
+        "statut": resultat["statut"],
+        "date": date.today().isoformat(),
+        "decision": "À décider",
+        "cv_path": str(chemin.relative_to(BASE_DIR)),
+        "source": source,
+    }])
+    enregistrer_candidats(
+        pd.concat([lire_csv(FICHIER_CANDIDATS, COLONNES_CSV), nouvelle],
+                  ignore_index=True)
+    )
+    return None
+
+
+def afficher_carrieres():
+    st.markdown(
+        "<style>section[data-testid='stSidebar'], "
+        "[data-testid='collapsedControl'] {display: none;}</style>",
+        unsafe_allow_html=True,
+    )
+
+    _, centre, _ = st.columns([1, 2, 1])
+
+    with centre:
+        st.markdown(LOGO_HTML, unsafe_allow_html=True)
+        st.title("Careers")
+        st.markdown("Découvrez nos offres et postulez en ligne.")
+
+        ouvertes = offres_ouvertes()
+
+        if ouvertes.empty:
+            st.info("Aucune offre ouverte pour le moment.")
+            return
+
+        for _, offre in ouvertes.iterrows():
+            with st.container(border=True):
+                st.markdown(f"### {offre['titre']}")
+                st.caption(
+                    f"{offre['departement']} · {offre['contrat']} · "
+                    f"{offre['localisation']}"
+                )
+                with st.expander("Description"):
+                    st.write(offre["description"])
+                    st.write(f"**Skills:** {offre['competences_requises']}")
+
+        st.markdown("---")
+        st.subheader("Apply")
+
+        with st.form("form_postuler"):
+            offre_choisie = st.selectbox("Position", ouvertes["titre"].tolist())
+            nom = st.text_input("Full Name *")
+            email = st.text_input("Email Address *")
+            cv = st.file_uploader("Upload CV (PDF) *", type=["pdf"])
+            envoyer = st.form_submit_button(
+                "Submit application", use_container_width=True
+            )
+
+        if envoyer:
+            erreur = creer_candidature(
+                nom, email, offre_choisie,
+                cv.getvalue() if cv else None, "Site carrières",
+            )
+            if erreur:
+                st.error(erreur)
+            else:
+                st.success("Merci ! Votre candidature a bien été envoyée.")
+
+
+# ==========================================
 # 4. DASHBOARD
 # ==========================================
 
@@ -398,6 +806,26 @@ def afficher_dashboard():
             graphique_cercle(
                 tableau["offre"].replace("", "Non spécifiée").value_counts()
             )
+
+        g4, g5 = st.columns(2)
+
+        with g4:
+            st.markdown("**Candidates by Source**")
+            graphique_cercle(
+                tableau["source"].replace("", "Non spécifiée").value_counts()
+            )
+
+        with g5:
+            st.markdown("**Hiring Conversion**")
+
+            def taux(decisions):
+                return f"{tableau['decision'].isin(decisions).sum() / total * 100:.0f}%"
+
+            t1, t2, t3 = st.columns(3)
+            t1.metric("Interview rate", taux(["Entretien", "Accepté"]))
+            t2.metric("Hire rate", taux(["Accepté"]))
+            t3.metric("Rejection rate", taux(["Refusé"]))
+
 
     st.markdown("---")
     gauche, droite = st.columns(2)
@@ -541,6 +969,7 @@ def afficher_candidats():
     i1, i2 = st.columns(2)
     i1.info(f"💼 **Job Offer:** {candidat['offre'] or 'Not specified'}")
     i2.info(f"📅 **Application Date:** {candidat['date'] or 'Not specified'}")
+    st.write(f"**Source:** {candidat['source'] or 'Non spécifiée'}")
 
     # ---- CV
     st.markdown("---")
@@ -597,6 +1026,55 @@ def afficher_candidats():
                     + (", ".join(matching["competences_manquantes"]) or "—")
                 )
 
+    # ---- Notes & emails
+    st.markdown("---")
+    st.subheader("📝 Recruiter Notes")
+
+    notes = charger_notes()
+    notes_candidat = notes[
+        notes["candidate_id"].astype(str) == str(cid)
+    ].sort_values("date", ascending=False)
+
+    with st.form(f"form_note_{cid}", clear_on_submit=True):
+        texte_note = st.text_area(
+            "Add a note", placeholder="Impressions, points forts, questions..."
+        )
+        ajouter_note = st.form_submit_button("Add note")
+
+    if ajouter_note and texte_note.strip():
+        nouvelle_note = pd.DataFrame([{
+            "id": uuid.uuid4().hex[:8],
+            "candidate_id": cid,
+            "auteur": utilisateur_courant()["nom"],
+            "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "note": texte_note.strip(),
+        }])
+        enregistrer_notes(pd.concat([notes, nouvelle_note], ignore_index=True))
+        st.rerun()
+
+    if notes_candidat.empty:
+        st.caption("Aucune note pour le moment.")
+
+    for _, note in notes_candidat.iterrows():
+        st.markdown(f"**{note['auteur']}** · {note['date']}")
+        st.write(note["note"])
+
+    st.markdown("---")
+    st.subheader("✉️ Email Templates")
+
+    modele = st.selectbox(
+        "Template", list(MODELES_EMAIL.keys()), key=f"modele_{cid}"
+    )
+    sujet, corps = generer_email(modele, candidat, utilisateur_courant())
+    corps_final = st.text_area(
+        "Preview (modifiable)", value=corps, height=220,
+        key=f"apercu_{cid}_{modele}",
+    )
+    st.link_button(
+        "Open in mail app",
+        lien_mailto(candidat["email"], sujet, corps_final),
+    )
+
     # ---- Décision
     st.markdown("---")
     st.subheader("Recruitment Decision")
@@ -613,8 +1091,10 @@ def afficher_candidats():
         st.rerun()
 
     with st.expander("🗑️ Delete this candidate"):
+        if not est_admin():
+            st.caption("Réservé aux administrateurs.")
         confirme = st.checkbox("Je confirme la suppression", key=f"conf_{cid}")
-        if st.button("Delete candidate", key=f"del_{cid}", disabled=not confirme):
+        if st.button("Delete candidate", key=f"del_{cid}", disabled=not (confirme and est_admin())):
             enregistrer_candidats(
                 tableau[tableau["candidate_id"].astype(str) != str(cid)]
             )
@@ -641,7 +1121,7 @@ def ajouter_candidat():
 
         if not offres.empty:
             offre_choisie = st.selectbox(
-                "Select Job Offer *", offres["titre"].tolist()
+                "Select Job Offer *", offres_ouvertes()["titre"].tolist()
             )
         else:
             offre_choisie = ""
@@ -649,6 +1129,7 @@ def ajouter_candidat():
 
         st.subheader("Documents")
         cv = st.file_uploader("Upload CV (PDF) *", type=["pdf"])
+        source = st.selectbox("Source", SOURCES)
 
         envoyer = st.form_submit_button(
             "Submit Application", use_container_width=True
@@ -704,6 +1185,7 @@ def ajouter_candidat():
             "date": date.today().isoformat(),
             "decision": "À décider",
             "cv_path": str(chemin.relative_to(BASE_DIR)),
+            "source": source,
         }])
 
         enregistrer_candidats(
@@ -755,6 +1237,7 @@ def ajouter_candidat():
 def afficher_offres():
     st.title("Job Offers Management")
     st.markdown("Create and manage your recruitment offers.")
+    st.caption("Page publique de candidature : ajoutez ?careers=1 à l'adresse de l'application.")
     st.markdown("---")
 
     st.subheader("➕ Create a New Job Offer")
@@ -804,6 +1287,7 @@ def afficher_offres():
                 "description": description.strip(),
                 "competences_requises": ", ".join(competences),
                 "places": places,
+                "statut_offre": "Open",
                 "date": date.today().isoformat(),
             }])
             enregistrer_offres(pd.concat([offres, nouvelle], ignore_index=True))
@@ -861,12 +1345,27 @@ def afficher_offres():
                 else:
                     st.info("No applicants for this offer yet.")
 
+            ouverte = offre["statut_offre"] != "Closed"
+            st.caption("Status : " + ("🟢 Open" if ouverte else "🔴 Closed"))
+
+            if st.button(
+                "Close offer" if ouverte else "Reopen offer",
+                key=f"toggle_{offre['id']}",
+            ):
+                offres.loc[offres["id"] == offre["id"], "statut_offre"] = (
+                    "Closed" if ouverte else "Open"
+                )
+                enregistrer_offres(offres)
+                st.rerun()
+
             with st.expander("🗑️ Delete this offer"):
                 ok = st.checkbox(
                     "Je confirme la suppression", key=f"conf_offre_{offre['id']}"
                 )
+                if not est_admin():
+                    st.caption("Réservé aux administrateurs.")
                 if st.button(
-                    "Delete offer", key=f"del_offre_{offre['id']}", disabled=not ok
+                    "Delete offer", key=f"del_offre_{offre['id']}", disabled=not (ok and est_admin())
                 ):
                     enregistrer_offres(offres[offres["id"] != offre["id"]])
                     st.rerun()
@@ -1042,7 +1541,9 @@ def afficher_entretiens():
         date_entretien = st.date_input("Interview Date", min_value=date.today())
         heure_entretien = st.time_input("Interview Time")
         type_entretien = st.selectbox("Interview Type", ["Online", "Présentiel"])
-        recruteur = st.text_input("Recruiter Name")
+        recruteur = st.text_input(
+            "Recruiter Name", value=utilisateur_courant()["nom"]
+        )
 
         envoyer = st.form_submit_button(
             "📅 Schedule Interview", use_container_width=True
@@ -1130,26 +1631,59 @@ PAGES = {
     "Candidate Comparison": afficher_comparaison,
     "Kanban Board": afficher_kanban,
     "Interview Management": afficher_entretiens,
+    "My Account": afficher_compte,
+    "Users": afficher_utilisateurs,
 }
+
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+# Page publique de candidature (sans connexion) : ?careers=1
+if st.query_params.get("careers"):
+    afficher_carrieres()
+    st.stop()
+
+# Acces protege : il faut etre connecte
+if utilisateur_courant() is None:
+    afficher_connexion()
+    st.stop()
+
+utilisateur = utilisateur_courant()
+pages_visibles = [p for p in PAGES if p != "Users" or est_admin()]
+
+if st.session_state.get("page") not in pages_visibles:
+    st.session_state["page"] = "Dashboard"
 
 with st.sidebar:
     st.markdown(LOGO_HTML, unsafe_allow_html=True)
 
-    page = st.radio(
-        "Navigation", list(PAGES.keys()), label_visibility="collapsed"
-    )
+    for nom_page in pages_visibles:
+        actif = st.session_state["page"] == nom_page
+        if st.button(
+            nom_page,
+            key=f"nav_{nom_page}",
+            use_container_width=True,
+            type="primary" if actif else "secondary",
+        ):
+            st.session_state["page"] = nom_page
+            st.rerun()
 
     st.markdown("---")
+    st.caption(f"👤 {utilisateur['nom']} · {utilisateur['role']}")
 
-    if st.button("🔄 Reset Demo", use_container_width=True):
+    if st.button("Log out", key="logout", use_container_width=True):
+        st.session_state.pop("user", None)
+        st.session_state.pop("page", None)
+        st.rerun()
+
+    if est_admin() and st.button(
+        "Reset Demo", key="reset_demo", use_container_width=True
+    ):
         try:
             lancer_seed_demo()
             st.success("Demo réinitialisée.")
             st.rerun()
         except Exception as erreur:
             st.error(str(erreur))
-
-DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 if not FICHIER_CANDIDATS.exists() or FICHIER_CANDIDATS.stat().st_size == 0:
     try:
@@ -1158,5 +1692,5 @@ if not FICHIER_CANDIDATS.exists() or FICHIER_CANDIDATS.stat().st_size == 0:
         st.error(f"Erreur : {erreur}")
         st.stop()
 
-PAGES[page]()
+PAGES[st.session_state["page"]]()
 
