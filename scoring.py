@@ -148,6 +148,39 @@ def calculer_score(texte_cv: str) -> dict[str, object]:
     statut = "Refusé" if total < 50 else "À contacter" if total >= 70 else "À étudier"
     return {"score": total, "statut": statut, "détails": details}
 
+def calculer_matching_offre(texte_cv: str, competences_requises: list[str]) -> dict:
+
+    texte = _normaliser(texte_cv)
+
+    if not competences_requises:
+        return {
+            "score": 0,
+            "competences_trouvees": [],
+            "competences_manquantes": []
+        }
+
+    competences_trouvees = []
+    competences_manquantes = []
+
+    for competence in competences_requises:
+
+        competence_normalisee = _normaliser(competence)
+
+        if competence_normalisee in texte:
+            competences_trouvees.append(competence)
+        else:
+            competences_manquantes.append(competence)
+
+    score = round(
+        len(competences_trouvees) / len(competences_requises) * 100,
+        2
+    )
+
+    return {
+        "score": score,
+        "competences_trouvees": competences_trouvees,
+        "competences_manquantes": competences_manquantes
+    }
 
 if __name__ == "__main__":
     # Exécution directe : calcule et affiche les résultats des CV de démonstration.
