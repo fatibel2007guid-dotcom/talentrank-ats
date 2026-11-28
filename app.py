@@ -200,6 +200,18 @@ div[data-testid="stExpander"] { background: white; border: 1px solid var(--borde
 hr { border-color: var(--border); margin-top: 1.5rem; margin-bottom: 1.5rem; }
 div[data-testid="stAlert"] { border-radius: 10px; }
 
+/* MASQUER LES ELEMENTS STREAMLIT */
+#MainMenu, footer,
+[data-testid="stToolbar"],
+[data-testid="stDecoration"],
+[data-testid="stStatusWidget"],
+[data-testid="stAppDeployButton"],
+[class*="viewerBadge"], [class*="ViewerBadge"] {
+    display: none !important;
+    visibility: hidden !important;
+}
+header[data-testid="stHeader"] { background: transparent; }
+
 /* CARTES */
 div[data-testid="stVerticalBlockBorderWrapper"] { border-radius: 16px; box-shadow: 0 4px 18px rgba(55,48,163,0.06); }
 div[data-testid="stMetric"] { border-radius: 16px; box-shadow: 0 4px 18px rgba(55,48,163,0.05); }
@@ -598,6 +610,7 @@ def afficher_utilisateurs():
 
     email = st.selectbox("Account", utilisateurs["email"].tolist())
     ligne = utilisateurs[utilisateurs["email"] == email].iloc[0]
+    nouveau_nom = st.text_input("Name", value=ligne["nom"], key=f"nom_{email}")
     role = st.selectbox(
         "Role", ROLES,
         index=ROLES.index(ligne["role"]) if ligne["role"] in ROLES else 1,
@@ -606,13 +619,16 @@ def afficher_utilisateurs():
     b1, b2 = st.columns(2)
     nb_admins = int((utilisateurs["role"] == "Admin").sum())
 
-    if b1.button("Save role", use_container_width=True):
+    if b1.button("Save changes", use_container_width=True):
         if ligne["role"] == "Admin" and role != "Admin" and nb_admins <= 1:
             st.error("Il faut garder au moins un administrateur.")
         else:
             utilisateurs.loc[utilisateurs["email"] == email, "role"] = role
+            utilisateurs.loc[utilisateurs["email"] == email, "nom"] = (
+                nouveau_nom.strip() or ligne["nom"]
+            )
             enregistrer_utilisateurs(utilisateurs)
-            st.success("Rôle mis à jour.")
+            st.success("Compte mis à jour.")
             st.rerun()
 
     if b2.button(
