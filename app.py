@@ -11,6 +11,7 @@ import sys
 import unicodedata
 import uuid
 from datetime import date, datetime
+from html import escape as echapper
 from pathlib import Path
 from urllib.parse import quote
 
@@ -198,6 +199,26 @@ div[data-testid="stExpander"] { background: white; border: 1px solid var(--borde
 
 hr { border-color: var(--border); margin-top: 1.5rem; margin-bottom: 1.5rem; }
 div[data-testid="stAlert"] { border-radius: 10px; }
+
+/* CARTES */
+div[data-testid="stVerticalBlockBorderWrapper"] { border-radius: 16px; box-shadow: 0 4px 18px rgba(55,48,163,0.06); }
+div[data-testid="stMetric"] { border-radius: 16px; box-shadow: 0 4px 18px rgba(55,48,163,0.05); }
+.tr-card { background: #FFFFFF; border: 1px solid var(--border); border-radius: 16px; padding: 18px 20px; margin-bottom: 16px; box-shadow: 0 4px 18px rgba(55,48,163,0.06); }
+.tr-title { font-weight: 700; font-size: 16px; color: #312E81; margin-bottom: 10px; }
+.tr-avatar { width: 64px; height: 64px; min-width: 64px; border-radius: 50%; background: linear-gradient(135deg, #4F46E5, #7C3AED); color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 700; }
+.tr-chip { display: inline-block; padding: 3px 10px; margin: 2px 4px 2px 0; border-radius: 999px; background: #EEF2FF; color: #3730A3; font-size: 12px; font-weight: 600; }
+.tr-sub { font-weight: 700; color: #4F46E5; font-size: 13px; margin-top: 12px; }
+.tr-small { color: #475569; font-size: 13px; }
+.tr-row { display: grid; grid-template-columns: 28px 110px 1fr; gap: 8px; align-items: center; padding: 11px 0; border-bottom: 1px solid #EEF0FB; font-size: 14px; }
+.tr-row:last-child { border-bottom: none; }
+.tr-label { color: #6B7280; }
+.tr-value { color: #1E1B4B; font-weight: 600; }
+.tr-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; background: #DCFCE7; color: #166534; font-size: 12px; font-weight: 700; }
+
+/* ZONE D'IMPORT */
+div[data-testid="stFileUploader"] section { border: 2px dashed #C4B5FD; background: #F5F3FF; border-radius: 16px; padding: 26px 20px; }
+div[data-testid="stFileUploader"] section button { background: #3730A3; border: none; border-radius: 999px; padding: 8px 22px; }
+div[data-testid="stFileUploader"] section button, div[data-testid="stFileUploader"] section button * { color: #FFFFFF !important; }
 
 </style>
 """, unsafe_allow_html=True)
@@ -491,7 +512,7 @@ def afficher_connexion():
                 utilisateur = authentifier(email, mot_de_passe)
                 if utilisateur:
                     st.session_state["user"] = utilisateur
-                    st.session_state["page"] = "Dashboard"
+                    st.session_state["page"] = PAGE_ACCUEIL
                     st.rerun()
                 else:
                     st.error("E-mail ou mot de passe incorrect.")
@@ -773,9 +794,26 @@ def afficher_carrieres():
 # ==========================================
 
 LOGO_HTML_SIDEBAR = (
-    LOGO_HTML.replace("color:#312E81", "color:#FFFFFF")
-    .replace("color:#4F46E5", "color:#A5B4FC")
-    .replace("color:#64748B", "color:#C7C4F0")
+    '<div style="text-align:center;padding:4px 0 18px 0;">'
+    f'<img src="data:image/svg+xml;base64,{LOGO_B64}" width="56" height="56" alt="TalentRank">'
+    '<div style="font-size:22px;font-weight:800;color:#FFFFFF;letter-spacing:-0.3px;margin-top:8px;">TalentRank</div>'
+    '<div style="font-size:12px;color:#C7C4F0;margin-top:2px;">Hire Smarter</div>'
+    '</div>'
+)
+
+_SVG_MALLETTE = (
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 90">'
+    '<path d="M44 24v-6a6 6 0 0 1 6-6h20a6 6 0 0 1 6 6v6" fill="none" stroke="#8B83F0" stroke-width="5"/>'
+    '<rect x="14" y="24" width="92" height="58" rx="10" fill="#4338CA"/>'
+    '<rect x="14" y="46" width="92" height="6" fill="#312E81"/>'
+    '<rect x="53" y="41" width="14" height="16" rx="3" fill="#A5B4FC"/></svg>'
+)
+
+ILLUSTRATION_SIDEBAR = (
+    '<div style="text-align:center;margin-top:28px;">'
+    f'<img src="data:image/svg+xml;base64,{base64.b64encode(_SVG_MALLETTE.encode("utf-8")).decode("utf-8")}" width="110" height="82">'
+    '<div style="color:#C7C4F0;font-size:15px;font-weight:600;margin-top:8px;">Digitalisez<br>votre recrutement</div>'
+    '</div>'
 )
 
 COMPETENCES_SCAN = COMPETENCES_DISPONIBLES + [
@@ -958,16 +996,116 @@ def anneau_score(valeur):
         f'fill="#312E81">{valeur}%</text></svg>'
     )
     b64 = base64.b64encode(svg.encode("utf-8")).decode("utf-8")
-    return f'<img src="data:image/svg+xml;base64,{b64}" width="170" height="170">'
+    return f'<img src="data:image/svg+xml;base64,{b64}" width="140" height="140">'
+
+
+class FichierPhoto:
+    """Adapte une photo prise avec la caméra au format d'un fichier importé."""
+
+    def __init__(self, photo):
+        self.name = "photo.png"
+        self._photo = photo
+
+    def getvalue(self):
+        return self._photo.getvalue()
+
+
+def _joindre(valeurs, separateur=" · "):
+    return separateur.join(valeurs) if valeurs else "—"
+
+
+def carte_apercu_cv(infos):
+    initiales = "".join(m[0] for m in infos["nom"].split()[:2]).upper() or "CV"
+    puces = "".join(
+        f'<span class="tr-chip">{echapper(c)}</span>' for c in infos["competences"][:8]
+    ) or "—"
+    return (
+        '<div class="tr-card">'
+        '<div style="display:flex;align-items:center;gap:14px;">'
+        f'<div class="tr-avatar">{echapper(initiales)}</div>'
+        f'<div><div style="font-weight:800;font-size:19px;color:#312E81;">{echapper(infos["nom"] or "Candidat")}</div>'
+        '<div class="tr-small">Aperçu du CV</div></div></div>'
+        '<div class="tr-sub">Contact</div>'
+        f'<div class="tr-small">📞 {echapper(infos["telephone"] or "—")}<br>✉️ {echapper(infos["email"] or "—")}</div>'
+        '<div class="tr-sub">Formation</div>'
+        f'<div class="tr-small">{echapper(_joindre(infos["formation"]))}</div>'
+        '<div class="tr-sub">Expérience</div>'
+        f'<div class="tr-small">{echapper(_joindre(infos["experience"]))}</div>'
+        '<div class="tr-sub">Compétences</div>'
+        f'<div>{puces}</div>'
+        '<div class="tr-sub">Langues</div>'
+        f'<div class="tr-small">{echapper(_joindre(infos["langues"], ", "))}</div>'
+        '</div>'
+    )
+
+
+def carte_champs(infos):
+    champs = [
+        ("👤", "Nom & Prénom", infos["nom"]),
+        ("✉️", "Email", infos["email"]),
+        ("📞", "Téléphone", infos["telephone"]),
+        ("🎓", "Formation", _joindre(infos["formation"]) if infos["formation"] else ""),
+        ("💼", "Expérience", _joindre(infos["experience"]) if infos["experience"] else ""),
+        ("🧩", "Compétences", ", ".join(infos["competences"])),
+        ("🌐", "Langues", ", ".join(infos["langues"])),
+    ]
+    lignes = "".join(
+        f'<div class="tr-row"><span>{icone}</span>'
+        f'<span class="tr-label">{echapper(libelle)}</span>'
+        f'<span class="tr-value">{echapper(valeur) if valeur else "—"}</span></div>'
+        for icone, libelle, valeur in champs
+    )
+    return (
+        '<div class="tr-card">'
+        '<div style="display:flex;justify-content:space-between;align-items:center;">'
+        '<div class="tr-title">✨ Résultat de l\'analyse</div>'
+        '<span class="tr-badge">CV bien analysé !</span></div>'
+        f'{lignes}</div>'
+    )
+
+
+def carte_score(score, titre, texte, matching):
+    manquantes = ""
+    if matching and matching["competences_manquantes"]:
+        manquantes = (
+            '<div class="tr-small" style="margin-top:10px;">Compétences manquantes : '
+            + echapper(", ".join(matching["competences_manquantes"])) + '</div>'
+        )
+    return (
+        '<div class="tr-card"><div class="tr-title">📊 Score de compatibilité</div>'
+        '<div style="display:flex;align-items:center;gap:14px;">'
+        + anneau_score(score) +
+        '<div><div style="font-weight:700;color:#16A34A;">' + echapper(titre) + '</div>'
+        '<div class="tr-small">' + echapper(texte) + '</div></div></div>'
+        + manquantes + '</div>'
+    )
+
+
+def carte_resume(infos):
+    elements = [
+        (bool(infos["experience"]), "Expérience pertinente"),
+        (bool(infos["competences"]),
+         "Compétences clés : " + (", ".join(infos["competences"][:3]) or "non détectées")),
+        (bool(infos["formation"]), "Niveau d'étude adapté"),
+        (bool(infos["langues"]),
+         "Langues : " + (", ".join(infos["langues"]) or "non détectées")),
+    ]
+    lignes = "".join(
+        f'<div class="tr-small" style="margin:6px 0;">{"✅" if ok else "⚠️"} {echapper(texte)}</div>'
+        for ok, texte in elements
+    )
+    return f'<div class="tr-card"><div class="tr-title">📝 Résumé du profil</div>{lignes}</div>'
 
 
 def afficher_scanner():
-    st.title("CV Scanner")
     st.markdown(
-        "Importez un CV (PDF, DOCX ou photo) et laissez TalentRank "
-        "extraire les informations automatiquement."
+        '<div style="display:flex;align-items:center;gap:14px;margin-bottom:6px;">'
+        '<div style="font-size:40px;">🧾</div>'
+        '<div><div style="font-size:30px;font-weight:800;color:#312E81;line-height:1.1;">CV Scanner</div>'
+        '<div style="color:#6B7280;">Importez un CV (même sous forme de photo) et laissez '
+        'TalentRank extraire les informations automatiquement.</div></div></div>',
+        unsafe_allow_html=True,
     )
-    st.markdown("---")
 
     ouvertes = offres_ouvertes()
     choix = st.selectbox(
@@ -981,6 +1119,12 @@ def afficher_scanner():
         type=["pdf", "docx", "jpg", "jpeg", "png"],
         help="Formats acceptés : PDF, DOCX, JPG, PNG",
     )
+
+    with st.expander("📷 Ou prendre une photo du CV"):
+        photo = st.camera_input("Photo du CV", label_visibility="collapsed")
+
+    if fichier is None and photo is not None:
+        fichier = FichierPhoto(photo)
 
     if fichier is None:
         st.info("Importez un CV pour lancer l'analyse.")
@@ -1004,53 +1148,19 @@ def afficher_scanner():
     score, matching = score_compatibilite(texte, offre)
     titre_message, texte_message = message_score(score)
 
-    gauche, droite = st.columns([3, 2])
+    st.markdown("<br>", unsafe_allow_html=True)
+    c1, c2, c3 = st.columns([1.1, 1.3, 1.1])
 
-    with gauche:
-        with st.container(border=True):
-            t1, t2 = st.columns([3, 2])
-            t1.subheader("✨ Résultat de l'analyse")
-            t2.success("CV bien analysé !")
-
-            lignes_infos = [
-                ("👤", "Nom & Prénom", infos["nom"]),
-                ("✉️", "Email", infos["email"]),
-                ("📞", "Téléphone", infos["telephone"]),
-                ("🎓", "Formation", " · ".join(infos["formation"])),
-                ("💼", "Expérience", " · ".join(infos["experience"])),
-                ("🧩", "Compétences", ", ".join(infos["competences"])),
-                ("🌐", "Langues", ", ".join(infos["langues"])),
-            ]
-            for icone, libelle, valeur in lignes_infos:
-                c1, c2 = st.columns([1, 2])
-                c1.write(f"{icone} **{libelle}**")
-                c2.write(valeur or "—")
-
-    with droite:
-        with st.container(border=True):
-            st.markdown("#### 📊 Score de compatibilité")
-            a, b = st.columns(2)
-            a.markdown(anneau_score(score), unsafe_allow_html=True)
-            b.markdown(f"**{titre_message}**")
-            b.caption(texte_message)
-            if matching and matching["competences_manquantes"]:
-                st.caption(
-                    "Compétences manquantes : "
-                    + ", ".join(matching["competences_manquantes"])
-                )
-
-        with st.container(border=True):
-            st.markdown("#### 📝 Résumé du profil")
-            resume = [
-                (bool(infos["experience"]), "Expérience pertinente"),
-                (bool(infos["competences"]),
-                 "Compétences clés : " + (", ".join(infos["competences"][:3]) or "non détectées")),
-                (bool(infos["formation"]), "Niveau d'étude adapté"),
-                (bool(infos["langues"]),
-                 "Langues : " + (", ".join(infos["langues"]) or "non détectées")),
-            ]
-            for ok, ligne in resume:
-                st.markdown(("✅ " if ok else "⚠️ ") + ligne)
+    with c1:
+        st.markdown(carte_apercu_cv(infos), unsafe_allow_html=True)
+    with c2:
+        st.markdown(carte_champs(infos), unsafe_allow_html=True)
+    with c3:
+        st.markdown(
+            carte_score(score, titre_message, texte_message, matching),
+            unsafe_allow_html=True,
+        )
+        st.markdown(carte_resume(infos), unsafe_allow_html=True)
 
     st.markdown("---")
     st.subheader("➕ Ajouter aux candidats")
@@ -1078,6 +1188,122 @@ def afficher_scanner():
                 st.error(erreur)
             else:
                 st.success(f"{nom} a été ajouté(e) aux candidats.")
+
+
+# ==========================================
+# 3E. RECHERCHE GLOBALE + ANALYTICS
+# ==========================================
+
+
+def afficher_resultats_recherche(terme):
+    st.subheader(f"Résultats pour « {terme} »")
+
+    candidats = charger_candidats()
+    masque = (
+        candidats["nom"].str.contains(terme, case=False, na=False, regex=False)
+        | candidats["email"].str.contains(terme, case=False, na=False, regex=False)
+        | candidats["offre"].str.contains(terme, case=False, na=False, regex=False)
+    )
+    trouves = candidats[masque]
+
+    st.markdown(f"**Candidats ({len(trouves)})**")
+    if trouves.empty:
+        st.caption("Aucun candidat trouvé.")
+    else:
+        st.dataframe(
+            trouves[["nom", "email", "offre", "score", "decision"]].rename(columns={
+                "nom": "Candidate", "email": "Email", "offre": "Job Offer",
+                "score": "Score", "decision": "Decision",
+            }),
+            hide_index=True, use_container_width=True,
+        )
+
+    offres = charger_offres()
+    masque_o = (
+        offres["titre"].str.contains(terme, case=False, na=False, regex=False)
+        | offres["departement"].str.contains(terme, case=False, na=False, regex=False)
+        | offres["localisation"].str.contains(terme, case=False, na=False, regex=False)
+    )
+    trouvees = offres[masque_o]
+
+    st.markdown(f"**Offres ({len(trouvees)})**")
+    if trouvees.empty:
+        st.caption("Aucune offre trouvée.")
+    else:
+        st.dataframe(
+            trouvees[["titre", "departement", "contrat", "localisation"]].rename(columns={
+                "titre": "Job Title", "departement": "Department",
+                "contrat": "Contract", "localisation": "Location",
+            }),
+            hide_index=True, use_container_width=True,
+        )
+
+
+PALETTE_TRANCHES = {
+    "Faible (< 50)": "#DC2626",
+    "Moyen (50-69)": "#F59E0B",
+    "Élevé (70+)": "#16A34A",
+}
+
+
+def afficher_analytics():
+    st.title("Analytics")
+    st.markdown("Analysez la performance de votre recrutement.")
+    st.markdown("---")
+
+    tableau = charger_candidats()
+    if tableau.empty:
+        st.info("Aucune donnée à analyser pour le moment.")
+        return
+
+    g1, g2, g3 = st.columns(3)
+    with g1:
+        st.markdown("**Candidates by Status**")
+        graphique_cercle(
+            tableau["statut"].replace("", "À étudier").value_counts(), PALETTE_STATUTS
+        )
+    with g2:
+        st.markdown("**Recruitment Decisions**")
+        graphique_cercle(tableau["decision"].value_counts(), PALETTE_DECISIONS)
+    with g3:
+        st.markdown("**Candidates by Source**")
+        graphique_cercle(
+            tableau["source"].replace("", "Non spécifiée").value_counts()
+        )
+
+    st.markdown("---")
+    gauche, droite = st.columns(2)
+
+    with gauche:
+        st.subheader("Score distribution")
+        tranches = pd.cut(
+            tableau["score"], bins=[-1, 49.99, 69.99, 100],
+            labels=list(PALETTE_TRANCHES.keys()),
+        ).astype(str)
+        graphique_cercle(tranches.value_counts(), PALETTE_TRANCHES)
+
+    with droite:
+        st.subheader("Average score by job offer")
+        par_offre = (
+            tableau.assign(offre=tableau["offre"].replace("", "Non spécifiée"))
+            .groupby("offre")["score"].agg(["count", "mean"]).reset_index()
+        )
+        par_offre["mean"] = par_offre["mean"].round(1)
+        st.dataframe(
+            par_offre.rename(columns={
+                "offre": "Job Offer", "count": "Candidates", "mean": "Average Score",
+            }),
+            hide_index=True, use_container_width=True,
+        )
+
+    st.markdown("---")
+    st.subheader("Applications per month")
+    par_mois = (
+        tableau["date"].astype(str).str[:7].replace("", "Inconnu")
+        .value_counts().sort_index().reset_index()
+    )
+    par_mois.columns = ["Month", "Applications"]
+    st.dataframe(par_mois, hide_index=True, use_container_width=True)
 
 
 # ==========================================
@@ -1940,17 +2166,21 @@ def afficher_entretiens():
 # 11. SIDEBAR + INITIALISATION + NAVIGATION
 # ==========================================
 
+PAGE_ACCUEIL = "🏠 Dashboard"
+PAGE_UTILISATEURS = "🔑 Utilisateurs"
+
 PAGES = {
-    "Dashboard": afficher_dashboard,
-    "Candidates": afficher_candidats,
-    "Add Candidate": ajouter_candidat,
-    "CV Scanner": afficher_scanner,
-    "Job Offers": afficher_offres,
-    "Candidate Comparison": afficher_comparaison,
-    "Kanban Board": afficher_kanban,
-    "Interview Management": afficher_entretiens,
-    "My Account": afficher_compte,
-    "Users": afficher_utilisateurs,
+    PAGE_ACCUEIL: afficher_dashboard,
+    "💼 Offres d'emploi": afficher_offres,
+    "👥 Candidats": afficher_candidats,
+    "➕ Ajouter un candidat": ajouter_candidat,
+    "📄 CV Scanner": afficher_scanner,
+    "📅 Entretiens": afficher_entretiens,
+    "📋 Kanban": afficher_kanban,
+    "⚖️ Comparaison": afficher_comparaison,
+    "📊 Analytics": afficher_analytics,
+    "⚙️ Paramètres": afficher_compte,
+    PAGE_UTILISATEURS: afficher_utilisateurs,
 }
 
 def principal():
@@ -1973,10 +2203,10 @@ def principal():
         st.stop()
 
     utilisateur = utilisateur_courant()
-    pages_visibles = [p for p in PAGES if p != "Users" or est_admin()]
+    pages_visibles = [p for p in PAGES if p != PAGE_UTILISATEURS or est_admin()]
 
     if st.session_state.get("page") not in pages_visibles:
-        st.session_state["page"] = "Dashboard"
+        st.session_state["page"] = PAGE_ACCUEIL
 
     with st.sidebar:
         st.markdown(LOGO_HTML_SIDEBAR, unsafe_allow_html=True)
@@ -1991,6 +2221,8 @@ def principal():
             ):
                 st.session_state["page"] = nom_page
                 st.rerun()
+
+        st.markdown(ILLUSTRATION_SIDEBAR, unsafe_allow_html=True)
 
         st.markdown("---")
         st.caption(f"👤 {utilisateur['nom']} · {utilisateur['role']}")
@@ -2016,6 +2248,23 @@ def principal():
         except Exception as erreur:
             st.error(f"Erreur : {erreur}")
             st.stop()
+
+    barre, profil = st.columns([4, 1])
+    terme = barre.text_input(
+        "Recherche",
+        placeholder="🔍 Rechercher un candidat, une offre...",
+        label_visibility="collapsed",
+        key="recherche_globale",
+    )
+    profil.markdown(
+        f"<div style='text-align:right;padding-top:8px;font-weight:600;color:#3730A3;'>"
+        f"👤 {echapper(utilisateur['nom'])}</div>",
+        unsafe_allow_html=True,
+    )
+
+    if terme.strip():
+        afficher_resultats_recherche(terme.strip())
+        return
 
     PAGES[st.session_state["page"]]()
 
